@@ -53,6 +53,10 @@ def parse_args():
                    help="baseline: force one mode (no mode mechanism trained)")
     p.add_argument("--reader-layers", type=int, default=1, choices=[1, 2],
                    help="input reader depth (task interface, not a stage)")
+    p.add_argument("--q-conf", type=float, default=0.35,
+                   help="confidence gate: emit only when readout maxp >= q (<=0 disables)")
+    p.add_argument("--t-conf", type=float, default=0.1,
+                   help="softness of the confidence gate in training")
     p.add_argument("--train-n", type=int, default=4096)
     p.add_argument("--dev-n", type=int, default=512)
     p.add_argument("--test-n", type=int, default=1024)
@@ -86,6 +90,7 @@ def build_json(args):
                     "seed", "sigma", "lam_price", "lam_commit", "lam_nd", "v_min",
                     "tau", "semantics", "force", "train_n", "dev_n", "test_n",
                     "depth_max", "p_trivial", "reader_layers",
+                    "q_conf", "t_conf",
                     "eval_every", "save_every", "push_every"]},
         "params": None,
         "curves": {"step": [], "train_loss": [], "dev_ce": [], "dev_acc": [],
@@ -108,7 +113,8 @@ def main():
     model = InterleavedProcessor(d=args.d, n_stages=args.n, vocab=args.vocab,
                                  arch=args.arch, mechanism=mechanism,
                                  sigma=args.sigma,
-                                 reader_layers=args.reader_layers).to(DEVICE)
+                                 reader_layers=args.reader_layers,
+                                 q_conf=args.q_conf, t_conf=args.t_conf).to(DEVICE)
     common.write_json(common.run_json_path(args.run_id),
                       {**build_json(args),
                        "params": model.param_groups(),
@@ -145,7 +151,7 @@ def main():
         i += args.batch
         X, y = collate([train_ds.samples[j] for j in idx], train_ds.max_len)
 
-        logits, P, _ = model.predict(X, mode="soft", force=force,
+        logits, P, _, _ = model.predict(X, mode="soft", force=force,
                                      semantics=args.semantics)
         loss_task = F.cross_entropy(logits, y)
 
@@ -202,7 +208,8 @@ def main():
     best_model = InterleavedProcessor(d=args.d, n_stages=args.n, vocab=args.vocab,
                                       arch=args.arch, mechanism=mechanism,
                                       sigma=args.sigma,
-                                      reader_layers=args.reader_layers).to(DEVICE)
+                                      reader_layers=args.reader_layers,
+                                      q_conf=args.q_conf, t_conf=args.t_conf).to(DEVICE)
     load_checkpoint(best_model, common.best_pt_path(args.run_id))
     test_res = full_test_eval(best_model, test_ds, tau=args.tau,
                               semantics=args.semantics, device=DEVICE,

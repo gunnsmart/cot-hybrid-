@@ -75,7 +75,7 @@ Task A (with per-architecture baselines for c4) and task B (c1-c3 only):
 - All numbers above are rendered by `scripts/render_findings.py` from `results/*.json`. Regenerate with `python -m scripts.render_findings`.
 - Test suite: `pytest -q` (collection count reported here: **n/a** ; a test asserts this matches live `pytest --collect-only`).
 - Data is generated deterministically from fixed seeds (data seed 1234); each run's model seed is in its JSON config.
-- Push rule: every run commits+pushes every 500 steps; `scripts/recover_git.sh` refuses unpushed state (git log in this repo shows it).
+- Push rule: every run commits+pushes every 250 steps (spec floor 500; `--push-every` in each run's JSON); `scripts/recover_git.sh` refuses unpushed state (git history shows the cadence).
 - Reproduce one run: `python -m scripts.train --run-id A_mlp_main --task arithmetic --arch mlp --d 128 --n 12 --steps 3000`.
 
 ---

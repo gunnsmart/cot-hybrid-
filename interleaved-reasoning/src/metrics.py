@@ -46,7 +46,7 @@ def evaluate(model, dataset, indices, mode="hard", tau=0.5, force=None,
     old_sigma = model.sigma
     model.sigma = sigma_eval
 
-    ces, ps, counts, stage_p = [], [], [], []
+    ces, ps, gs, counts, stage_p = [], [], [], [], []
     trace_tokens_all = []
     correct = 0
     with torch.no_grad():
@@ -57,23 +57,25 @@ def evaluate(model, dataset, indices, mode="hard", tau=0.5, force=None,
             gen = torch.Generator(device="cpu").manual_seed(noise_seed + s)
             if mode == "hard":
                 gen = gen  # deterministic per (noise_seed, batch position)
-            logits, P, trace = model.predict(X, mode=mode, tau=tau, force=force,
-                                             semantics=semantics, noise_gen=gen)
+            logits, P, trace, G = model.predict(X, mode=mode, tau=tau, force=force,
+                                                semantics=semantics, noise_gen=gen)
             ce = torch.nn.functional.cross_entropy(logits, y, reduction="mean").item()
             pred = logits.argmax(-1)
             correct += int((pred == y).sum().item())
             ces.append(ce * len(idx))
             ps.append(P.cpu().numpy())
+            gs.append(G.cpu().numpy())
             if mode == "hard":
-                counts.append((P >= tau).sum(1).cpu().numpy())
+                counts.append((trace >= 0).sum(1).cpu().numpy())
                 trace_tokens_all.append(trace.cpu().numpy())
             else:
-                counts.append(P.sum(1).cpu().numpy())  # expected emissions
+                counts.append((P * G).sum(1).cpu().numpy())  # expected emissions
             stage_p.append(P.cpu().numpy())
     model.sigma = old_sigma
 
     n = len(indices)
     P = np.concatenate(ps, 0)                    # (n, N)
+    G = np.concatenate(gs, 0)                    # (n, N) gate
     counts = np.concatenate(counts, 0)           # (n,)
     samples = [dataset.samples[i] for i in indices]
     measured = np.array([s.measured for s in samples], dtype=float)
@@ -85,10 +87,17 @@ def evaluate(model, dataset, indices, mode="hard", tau=0.5, force=None,
     p_in = P.mean(axis=1)
     c1_var = float(np.var(p_in))
 
-    # c3: parity of soft vs hard mode distribution (aggregate Bernoulli KL)
-    p_soft = float(P.mean())
-    p_hard = float((P >= tau).mean())
-    c3_kl = _kl_bernoulli(p_soft, p_hard)
+    # c3: parity of the EFFECTIVE emission decision (mode x confidence gate).
+    # soft side: E[p * g]; hard side: freq(p >= tau & maxp >= q_conf).
+    # (The aggregate KL is computed in full_test_eval from both sides; the
+    # per-side rate is stored here as p_eff.)
+    if mode == "soft":
+        p_eff = float((P * G).mean())
+        p_soft = float(P.mean()); p_hard = None
+    else:
+        T = np.concatenate(trace_tokens_all, 0) if trace_tokens_all else None
+        p_eff = float((T >= 0).mean()) if T is not None else float((P >= tau).mean())
+        p_soft = None; p_hard = float((P >= tau).mean())
 
     # c2: correlations (hard mode counts)
     def _pearson(a, b):
@@ -112,7 +121,8 @@ def evaluate(model, dataset, indices, mode="hard", tau=0.5, force=None,
         "ce": ce, "acc": acc,
         "c1_var_p": c1_var,
         "c2_r_measured": c2_measured, "c2_r_label": c2_label,
-        "c3_kl": c3_kl,
+        "c3_kl": None,
+        "p_eff": p_eff,
         "p_soft": p_soft, "p_hard": p_hard,
         "mean_emits": float(counts.mean()),
         "counts": counts.tolist(),

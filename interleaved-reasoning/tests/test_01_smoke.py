@@ -19,7 +19,7 @@ def test_smoke_training_arithmetic():
     for step in range(120):
         idx = rng.choice(len(ds), size=32, replace=False).tolist()
         X, y = collate([ds.samples[i] for i in idx], ds.max_len)
-        logits, P, _ = m.predict(X, mode="soft")
+        logits, P, _, _ = m.predict(X, mode="soft")
         loss = (F.cross_entropy(logits, y)
                 + 0.2 * P.mean()
                 + 0.1 * (4 * P * (1 - P)).mean())
@@ -34,11 +34,11 @@ def test_smoke_training_arithmetic():
     assert last < first, f"loss did not decrease: {first} -> {last}"
     # mode controller must actually be used (not stuck at p=0.5 exactly)
     assert P.shape == (32, 4)
-    logits_h, P_h, trace = m.predict(X, mode="hard", tau=0.5)
+    logits_h, P_h, trace, _ = m.predict(X, mode="hard", tau=0.5)
     assert trace.shape == (32, 4)
     assert torch.isfinite(logits_h).all()
     # forced modes work
-    _, P_f, _ = m.forward(X, mode="hard", tau=0.5, force="emit")
+    _, P_f, _, _ = m.forward(X, mode="hard", tau=0.5, force="emit")
     assert float(P_f.mean()) == 1.0
-    _, P_l, _ = m.forward(X, mode="hard", tau=0.5, force="latent")
+    _, P_l, _, _ = m.forward(X, mode="hard", tau=0.5, force="latent")
     assert float(P_l.mean()) == 0.0

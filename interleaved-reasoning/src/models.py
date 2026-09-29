@@ -156,12 +156,17 @@ class InterleavedProcessor(nn.Module):
 
     def __init__(self, d: int, n_stages: int, vocab: int = VOCAB,
                  arch: str = "mlp", mechanism: bool = True,
-                 sigma: float = 0.0, reader_layers: int = 1):
+                 sigma: float = 0.0, reader_layers: int = 1,
+                 q_conf: float = 0.35, t_conf: float = 0.1):
         super().__init__()
         assert arch in STAGES, arch
         self.d, self.n_stages, self.vocab, self.arch, self.sigma = d, n_stages, vocab, arch, sigma
         self.mechanism = mechanism
         self.reader_layers = reader_layers
+        # Content gate: emit only when the readout is confident (maxp >= q_conf).
+        # Soft: g = sigmoid((maxp - q_conf)/t_conf); hard: maxp >= q_conf.
+        # q_conf <= 0 disables the gate (backward-compatible with early runs).
+        self.q_conf, self.t_conf = q_conf, t_conf
         self.embed = nn.Embedding(vocab, d)
         if reader_layers == 1:
             self.reader = nn.GRUCell(d, d)
@@ -215,6 +220,7 @@ class InterleavedProcessor(nn.Module):
         h = self.encode(x)
         B = h.size(0)
         P = []
+        G = []
         # per-sample trace: token per stage, -1 = not emitted yet
         trace_tokens = h.new_full((B, self.n_stages), -1, dtype=torch.long)
 
@@ -240,17 +246,27 @@ class InterleavedProcessor(nn.Module):
                 p = torch.sigmoid(z[:, 1] - z[:, 0])          # (B,)
             P.append(p)
 
+            dist = F.softmax(self.readout(h), dim=-1)         # (B, vocab)
+            maxp = dist.max(-1).values                        # (B,)
+            e = dist @ self.embed.weight                      # (B, d) expected embed
+
             if mode == "soft":
-                dist = F.softmax(self.readout(h), dim=-1)
-                e = dist @ self.embed.weight                  # (B,d) expected embed
+                if self.q_conf > 0:
+                    g = torch.sigmoid((maxp - self.q_conf) / self.t_conf)
+                else:
+                    g = torch.ones_like(maxp)
+                G.append(g)
                 if semantics == "additive":
-                    h = h + p.unsqueeze(-1) * e
+                    h = h + (p * g).unsqueeze(-1) * e
                 else:  # reset: the reference sketch's blend (1-p) h + p e
-                    h = (1.0 - p.unsqueeze(-1)) * h + p.unsqueeze(-1) * e
+                    h = (1.0 - (p * g).unsqueeze(-1)) * h + (p * g).unsqueeze(-1) * e
             else:
                 m = p >= tau
+                if self.q_conf > 0:
+                    m = m & (maxp >= self.q_conf)
+                G.append(m.to(h.dtype))
                 if m.any():
-                    t = self.readout(h).argmax(-1)            # (B,)
+                    t = dist.argmax(-1)                       # (B,)
                     te = self.embed(t)
                     if semantics == "additive":
                         h = h + m.unsqueeze(-1) * te
@@ -266,10 +282,11 @@ class InterleavedProcessor(nn.Module):
                 h = h + self.sigma * eps
 
         P = torch.stack(P, dim=1)                             # (B, N)
-        return h, P, trace_tokens
+        G = torch.stack(G, dim=1)                             # (B, N) gate
+        return h, P, trace_tokens, G
 
     def predict(self, x, mode="hard", tau=0.5, force=None,
                 semantics="additive", noise_gen=None):
-        h, P, trace = self.forward(x, mode=mode, tau=tau, force=force,
-                                   semantics=semantics, noise_gen=noise_gen)
-        return self.readout(h), P, trace
+        h, P, trace, G = self.forward(x, mode=mode, tau=tau, force=force,
+                                      semantics=semantics, noise_gen=noise_gen)
+        return self.readout(h), P, trace, G
