@@ -158,7 +158,8 @@ class InterleavedProcessor(nn.Module):
                  arch: str = "mlp", mechanism: bool = True,
                  sigma: float = 0.0, reader_layers: int = 1,
                  q_conf: float = 0.35, t_conf: float = 0.1,
-                 content: str = "argmax", mode_bottleneck: int = 0):
+                 content: str = "argmax", mode_bottleneck: int = 0,
+                 gate_ema: float = 0.0):
         super().__init__()
         assert arch in STAGES, arch
         self.d, self.n_stages, self.vocab, self.arch, self.sigma = d, n_stages, vocab, arch, sigma
@@ -168,6 +169,13 @@ class InterleavedProcessor(nn.Module):
         # Soft: g = sigmoid((maxp - q_conf)/t_conf); hard: maxp >= q_conf.
         # q_conf <= 0 disables the gate (backward-compatible with early runs).
         self.q_conf, self.t_conf = q_conf, t_conf
+        # gate_ema in [0,1): exponential memory on the per-stage content
+        # confidence maxp BEFORE the gate is applied (soft AND hard paths).
+        # 0 = instantaneous maxp (default, all prior runs). A positive value
+        # smooths the stage-to-stage on/off spikiness of the gate, which is
+        # input-specific and difficulty-unstructured (see calibration.md:
+        # within-tier emit-count variance capped criterion 2).
+        self.gate_ema = gate_ema
         # Soft-mode emission content: "argmax" (default) uses exactly the
         # hard-mode token, so the soft/hard gap is purely in the DECISION
         # (p*g vs the threshold) and never in the CONTENT; "expectation" is
@@ -242,6 +250,7 @@ class InterleavedProcessor(nn.Module):
         G = []
         # per-sample trace: token per stage, -1 = not emitted yet
         trace_tokens = h.new_full((B, self.n_stages), -1, dtype=torch.long)
+        mp_smooth = None  # running EMA of per-stage maxp (gate input)
 
         for l, stage in enumerate(self.stages):
             if self.arch == "transformer":
@@ -268,6 +277,12 @@ class InterleavedProcessor(nn.Module):
             dist = F.softmax(self.readout(h), dim=-1)         # (B, vocab)
             maxp = dist.max(-1).values                        # (B,)
             t_star = dist.argmax(-1)                          # (B,)
+            if self.gate_ema > 0.0:
+                mp_smooth = maxp if mp_smooth is None else \
+                    self.gate_ema * mp_smooth + (1.0 - self.gate_ema) * maxp
+                mp_g = mp_smooth
+            else:
+                mp_g = maxp
             if self.content == "expectation":
                 e = dist @ self.embed.weight                  # sketch's expectation
             else:
@@ -275,7 +290,7 @@ class InterleavedProcessor(nn.Module):
 
             if mode == "soft":
                 if self.q_conf > 0:
-                    g = torch.sigmoid((maxp - self.q_conf) / self.t_conf)
+                    g = torch.sigmoid((mp_g - self.q_conf) / self.t_conf)
                 else:
                     g = torch.ones_like(maxp)
                 G.append(g)
@@ -286,7 +301,7 @@ class InterleavedProcessor(nn.Module):
             else:
                 m = p >= tau
                 if self.q_conf > 0:
-                    m = m & (maxp >= self.q_conf)
+                    m = m & (mp_g >= self.q_conf)
                 G.append(m.to(h.dtype))
                 if m.any():
                     t = dist.argmax(-1)                       # (B,)

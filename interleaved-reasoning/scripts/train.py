@@ -59,6 +59,9 @@ def parse_args():
                    help="softness of the confidence gate in training")
     p.add_argument("--mode-bottleneck", type=int, default=0,
                    help="mode head reads a low-dim projection of the state (0 = direct)")
+    p.add_argument("--gate-ema", type=float, default=0.0,
+                   help="exponential memory on the gate input maxp "
+                        "(0 = instantaneous, all prior runs)")
     p.add_argument("--content", default="argmax", choices=["argmax", "expectation"],
                    help="soft-mode emission content: the hard-mode token (default, "
                         "same content both modes) or the sketch's softmax expectation")
@@ -95,7 +98,7 @@ def build_json(args):
                     "seed", "sigma", "lam_price", "lam_commit", "lam_nd", "v_min",
                     "tau", "semantics", "force", "train_n", "dev_n", "test_n",
                     "depth_max", "p_trivial", "reader_layers",
-                    "q_conf", "t_conf", "content", "mode_bottleneck",
+                    "q_conf", "t_conf", "content", "mode_bottleneck", "gate_ema",
                     "eval_every", "save_every", "push_every"]},
         "params": None,
         "curves": {"step": [], "train_loss": [], "dev_ce": [], "dev_acc": [],
@@ -120,7 +123,8 @@ def main():
                                  sigma=args.sigma,
                                  reader_layers=args.reader_layers,
                                  q_conf=args.q_conf, t_conf=args.t_conf,
-                                 content=args.content, mode_bottleneck=args.mode_bottleneck).to(DEVICE)
+                                 content=args.content, mode_bottleneck=args.mode_bottleneck,
+                                 gate_ema=args.gate_ema).to(DEVICE)
     if not args.resume:
         # fresh run: (re)write the progress JSON. On resume the existing JSON
         # holds the step history that `--resume` reads back below.
@@ -222,7 +226,8 @@ def main():
                                       sigma=args.sigma,
                                       reader_layers=args.reader_layers,
                                       q_conf=args.q_conf, t_conf=args.t_conf,
-                                      content=args.content, mode_bottleneck=args.mode_bottleneck).to(DEVICE)
+                                      content=args.content, mode_bottleneck=args.mode_bottleneck,
+                                      gate_ema=args.gate_ema).to(DEVICE)
     load_checkpoint(best_model, common.best_pt_path(args.run_id))
     test_res = full_test_eval(best_model, test_ds, tau=args.tau,
                               semantics=args.semantics, device=DEVICE,
