@@ -36,6 +36,7 @@ def load_run(run_id):
     mechanism = c.get("force", "none") == "none"
     m = InterleavedProcessor(d=c["d"], n_stages=c["n"], vocab=c["vocab"],
                              arch=c["arch"], mechanism=mechanism,
-                             sigma=c["sigma"])
+                             sigma=c["sigma"],
+                             reader_layers=c.get("reader_layers", 1))
     load_checkpoint(m, common.best_pt_path(run_id))
     return m, j

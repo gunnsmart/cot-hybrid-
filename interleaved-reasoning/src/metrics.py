@@ -122,12 +122,13 @@ def evaluate(model, dataset, indices, mode="hard", tau=0.5, force=None,
 
 
 def full_test_eval(model, dataset, tau=0.5, semantics="additive", device="cpu",
-                   noise_seed=7, batch=64):
-    """Everything a results JSON needs about the test set, for one model."""
+                   noise_seed=7, batch=64, force=None):
+    """Everything a results JSON needs about the test set, for one model.
+    `force` is set for baseline models (no mode head)."""
     idx = list(range(len(dataset)))
-    hard = evaluate(model, dataset, idx, mode="hard", tau=tau, force=None,
+    hard = evaluate(model, dataset, idx, mode="hard", tau=tau, force=force,
                     semantics=semantics, device=device, noise_seed=noise_seed)
-    soft = evaluate(model, dataset, idx, mode="soft", tau=tau, force=None,
+    soft = evaluate(model, dataset, idx, mode="soft", tau=tau, force=force,
                     semantics=semantics, device=device, noise_seed=noise_seed,
                     sigma_eval=0.0)
     fe = evaluate(model, dataset, idx, mode="hard", tau=tau, force="emit",

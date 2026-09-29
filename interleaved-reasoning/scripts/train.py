@@ -51,9 +51,15 @@ def parse_args():
     p.add_argument("--semantics", default="additive", choices=["additive", "reset"])
     p.add_argument("--force", default="none", choices=["none", "emit", "latent"],
                    help="baseline: force one mode (no mode mechanism trained)")
+    p.add_argument("--reader-layers", type=int, default=1, choices=[1, 2],
+                   help="input reader depth (task interface, not a stage)")
     p.add_argument("--train-n", type=int, default=4096)
     p.add_argument("--dev-n", type=int, default=512)
     p.add_argument("--test-n", type=int, default=1024)
+    p.add_argument("--depth-max", type=int, default=None,
+                   help="max task depth (calibration); default per task")
+    p.add_argument("--p-trivial", type=float, default=0.30,
+                   help="fraction of trivial surface components injected")
     p.add_argument("--eval-every", type=int, default=250)
     p.add_argument("--save-every", type=int, default=500)
     p.add_argument("--push-every", type=int, default=250,
@@ -79,6 +85,7 @@ def build_json(args):
                    ["task", "arch", "d", "n", "vocab", "steps", "batch", "lr", "wd",
                     "seed", "sigma", "lam_price", "lam_commit", "lam_nd", "v_min",
                     "tau", "semantics", "force", "train_n", "dev_n", "test_n",
+                    "depth_max", "p_trivial", "reader_layers",
                     "eval_every", "save_every", "push_every"]},
         "params": None,
         "curves": {"step": [], "train_loss": [], "dev_ce": [], "dev_acc": [],
@@ -100,15 +107,19 @@ def main():
 
     model = InterleavedProcessor(d=args.d, n_stages=args.n, vocab=args.vocab,
                                  arch=args.arch, mechanism=mechanism,
-                                 sigma=args.sigma).to(DEVICE)
+                                 sigma=args.sigma,
+                                 reader_layers=args.reader_layers).to(DEVICE)
     common.write_json(common.run_json_path(args.run_id),
                       {**build_json(args),
                        "params": model.param_groups(),
                        "curves": build_json(args)["curves"]})
 
-    train_ds = make_dataset(args.task, "train", args.train_n)
-    dev_ds = make_dataset(args.task, "dev", args.dev_n)
-    test_ds = make_dataset(args.task, "test", args.test_n)
+    train_ds = make_dataset(args.task, "train", args.train_n,
+                            depth_max=args.depth_max, p_trivial=args.p_trivial)
+    dev_ds = make_dataset(args.task, "dev", args.dev_n,
+                          depth_max=args.depth_max, p_trivial=args.p_trivial)
+    test_ds = make_dataset(args.task, "test", args.test_n,
+                           depth_max=args.depth_max, p_trivial=args.p_trivial)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
@@ -134,7 +145,8 @@ def main():
         i += args.batch
         X, y = collate([train_ds.samples[j] for j in idx], train_ds.max_len)
 
-        logits, P, _ = model.predict(X, mode="soft", semantics=args.semantics)
+        logits, P, _ = model.predict(X, mode="soft", force=force,
+                                     semantics=args.semantics)
         loss_task = F.cross_entropy(logits, y)
 
         if mechanism:
@@ -189,11 +201,12 @@ def main():
     # ---- final evaluation on the test set with the best checkpoint ---------
     best_model = InterleavedProcessor(d=args.d, n_stages=args.n, vocab=args.vocab,
                                       arch=args.arch, mechanism=mechanism,
-                                      sigma=args.sigma).to(DEVICE)
+                                      sigma=args.sigma,
+                                      reader_layers=args.reader_layers).to(DEVICE)
     load_checkpoint(best_model, common.best_pt_path(args.run_id))
     test_res = full_test_eval(best_model, test_ds, tau=args.tau,
                               semantics=args.semantics, device=DEVICE,
-                              batch=args.eval_batch)
+                              batch=args.eval_batch, force=force)
     j = common.read_json(common.run_json_path(args.run_id))
     j["status"] = "done"
     j["finished"] = common.now_iso()

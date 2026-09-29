@@ -62,25 +62,27 @@ class Sample:
 # ---------------------------------------------------------------------------
 
 def _sample_tree(rng: random.Random, depth: int):
-    """Random binary tree with `depth` internal nodes (each an operator)."""
-    if depth == 1:
+    """Random binary tree with EXACTLY `depth` internal nodes (operators).
+    depth=0 -> a single digit leaf. Split: a+b = depth-1, both < depth."""
+    if depth == 0:
         return ("leaf", rng.randint(1, 9))
-    left_depth = rng.randint(1, depth - 1)
-    right_depth = depth - left_depth
+    a = rng.randint(0, depth - 1)
+    b = depth - 1 - a
     return (rng.choice(["+", "x"]),
-            _sample_tree(rng, left_depth),
-            _sample_tree(rng, right_depth))
+            _sample_tree(rng, a),
+            _sample_tree(rng, b))
 
 
 def _eval_tree(node):
-    """Return (value, [(op_or_None, value) ... internal values in postorder])."""
+    """Return (value, [(op, value, is_trivial), ... internal nodes])."""
     if node[0] == "leaf":
         return node[1], []
     _, l, r = node
     lv, lints = _eval_tree(l)
     rv, rints = _eval_tree(r)
     val = lv + rv if node[0] == "+" else lv * rv
-    return val, lints + rints + [(node[0], val)]
+    trivial = node[0] == "x" and (lv == 1 or rv == 1)
+    return val, lints + rints + [(node[0], val, trivial)]
 
 
 def gen_arithmetic(rng: random.Random, n: int,
@@ -102,7 +104,9 @@ def gen_arithmetic(rng: random.Random, n: int,
         if rng.random() < p_trivial:
             tree = _force_trivial(rng, tree)
         val, internals = _eval_tree(tree)
-        if any(v > A_VMAX for _, v in internals) or val > A_VMAX:
+        if len(internals) < 2:
+            continue  # forcing may have removed operators; keep label >= 2
+        if any(v > A_VMAX for _, v, _ in internals) or val > A_VMAX:
             continue
         expr = _to_infix(tree)
         tokens = []
@@ -113,12 +117,12 @@ def gen_arithmetic(rng: random.Random, n: int,
                 tokens.append(A_SYM["x"])
             else:
                 tokens.append(A_SYM[ch])
-        nops = sum(1 for op, _ in internals)
-        nontriv = sum(1 for op, _ in internals if not (op == "x" and _ == 1))
+        nops = len(internals)
+        nontriv = sum(1 for op, v, triv in internals if not triv)
         # measured = #intermediate values that must actually be produced
         measured = nontriv if nontriv >= 1 else 1
         out.append(Sample(tuple(tokens), A_VAL0 + val, nops, measured,
-                          tuple(A_VAL0 + v for _, v in internals)))
+                          tuple(A_VAL0 + v for _, v, _ in internals)))
     if len(out) < n:
         raise RuntimeError(f"arithmetic generator exhausted (got {len(out)}/{n})")
     return out
@@ -296,9 +300,19 @@ class Dataset:
         return X, y, label, measured
 
 
-def make_dataset(task: str, split: str, n: int, seed: int = 1234) -> Dataset:
+def make_dataset(task: str, split: str, n: int, seed: int = 1234,
+                 depth_max: int | None = None, p_trivial: float = 0.30) -> Dataset:
+    """Deterministic dataset. depth_max overrides the task's default max
+    depth (calibration knob; recorded in the run config)."""
     rng = random.Random(seed * 1000 + {"train": 1, "dev": 2, "test": 3}[split])
-    samples = GEN[task](rng, n)
+    if task == "arithmetic":
+        samples = gen_arithmetic(rng, n, p_trivial=p_trivial,
+                                 depth_range=(2, depth_max or 7))
+    elif task == "logic":
+        samples = gen_logic(rng, n, hops_range=(2, depth_max or 8))
+    else:
+        samples = gen_recall(rng, n, steps_range=(2, depth_max or 8),
+                             p_nop=p_trivial)
     return Dataset(task, split, samples, max(len(s.tokens) for s in samples))
 
 

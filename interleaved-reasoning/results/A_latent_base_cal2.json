@@ -1,0 +1,168 @@
+{
+ "best_step": 60,
+ "config": {
+  "arch": "mlp",
+  "batch": 96,
+  "d": 128,
+  "depth_max": 4,
+  "dev_n": 512,
+  "eval_every": 250,
+  "force": "latent",
+  "lam_commit": 0.1,
+  "lam_nd": 5.0,
+  "lam_price": 0.2,
+  "lr": 0.0003,
+  "n": 12,
+  "p_trivial": 0.0,
+  "push_every": 250,
+  "reader_layers": 2,
+  "save_every": 500,
+  "seed": 0,
+  "semantics": "additive",
+  "sigma": 0.2,
+  "steps": 60,
+  "task": "arithmetic",
+  "tau": 0.5,
+  "test_n": 1024,
+  "train_n": 4096,
+  "v_min": 0.1,
+  "vocab": 64,
+  "wd": 0.01
+ },
+ "created": "2026-09-29T08:00:53+00:00",
+ "curves": {
+  "dev_acc": [
+   0.04102
+  ],
+  "dev_ce": [
+   3.7461
+  ],
+  "mean_p": [
+   0.0
+  ],
+  "step": [
+   60
+  ],
+  "train_loss": [
+   3.79484
+  ]
+ },
+ "finished": "2026-09-29T08:01:00+00:00",
+ "negative_result": null,
+ "params": {
+  "base": 707648,
+  "mechanism": 0,
+  "overhead_pct": 0.0,
+  "stages": 201216,
+  "total": 908864
+ },
+ "run_id": "A_latent_base_cal2",
+ "seconds": 5.3,
+ "status": "done",
+ "test": {
+  "emit_gap": 0.0107421875,
+  "force_emit": {
+   "acc": 0.02734375,
+   "ce": 7.977515518665314
+  },
+  "force_latent": {
+   "acc": 0.0380859375,
+   "ce": 3.782391995191574
+  },
+  "hard": {
+   "acc": 0.0380859375,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 3.782391995191574,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_hard": 0.0,
+   "p_soft": 0.0,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "latent_gap": 0.0,
+  "soft": {
+   "acc": 0.0458984375,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 3.707704082131386,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_hard": 0.0,
+   "p_soft": 0.0,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
+}

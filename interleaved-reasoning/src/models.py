@@ -156,13 +156,19 @@ class InterleavedProcessor(nn.Module):
 
     def __init__(self, d: int, n_stages: int, vocab: int = VOCAB,
                  arch: str = "mlp", mechanism: bool = True,
-                 sigma: float = 0.0):
+                 sigma: float = 0.0, reader_layers: int = 1):
         super().__init__()
         assert arch in STAGES, arch
         self.d, self.n_stages, self.vocab, self.arch, self.sigma = d, n_stages, vocab, arch, sigma
         self.mechanism = mechanism
+        self.reader_layers = reader_layers
         self.embed = nn.Embedding(vocab, d)
-        self.reader = nn.GRUCell(d, d)
+        if reader_layers == 1:
+            self.reader = nn.GRUCell(d, d)
+            self.reader_proj = None
+        else:  # 2-layer reader (task interface only, not a stage)
+            self.reader = nn.GRU(d, d * 2, num_layers=2)
+            self.reader_proj = nn.Linear(d * 2, d)
         self.stages = nn.ModuleList([STAGES[arch](d) for _ in range(n_stages)])
         self.mode_norm = nn.LayerNorm(d) if mechanism else nn.Identity()
         self.mode_head = nn.Linear(d, 2) if mechanism else None
@@ -187,10 +193,14 @@ class InterleavedProcessor(nn.Module):
     # -- input encoding --------------------------------------------------------
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """h_0 from the input token sequence (depth-as-time GRU read)."""
-        h = self.embed(x[:, 0])
-        for t in range(1, x.size(1)):
-            h = self.reader(self.embed(x[:, t]), h)
-        return h
+        if self.reader_layers == 1:
+            h = self.embed(x[:, 0])
+            for t in range(1, x.size(1)):
+                h = self.reader(self.embed(x[:, t]), h)
+            return h
+        e = self.embed(x).transpose(0, 1)        # (T, B, d)
+        out, _ = self.reader(e)
+        return self.reader_proj(out[-1])         # (B, d)
 
     # -- forward ----------------------------------------------------------------
     def forward(self, x, mode="soft", tau=0.5, force=None,
