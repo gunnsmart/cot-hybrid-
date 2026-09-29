@@ -12,8 +12,9 @@ cd "$(dirname "$0")/.."
 PY="${PY:-.venv/bin/python}"
 [ -x "$PY" ] || PY="python3"
 
-# shared recipe (single phase, no curriculum):
-REC=( --sigma 0.2 --lam-price 0.2 --lam-commit 0.1 --lam-nd 20 --reader-layers 2 --batch 96 )
+# shared recipe (single phase, no curriculum) — the A_cal27 calibration
+# winner (sigma 0.1, gate q 0.30, expectation content; see experiments/calibration.md):
+REC=( --sigma 0.1 --lam-price 0.2 --lam-commit 0.1 --lam-nd 20 --reader-layers 2 --batch 96 --q-conf 0.30 --content expectation --push-every 100 )
 
 run() { # run <run-id> <args...>
   local id="$1"; shift
@@ -27,7 +28,7 @@ run() { # run <run-id> <args...>
 }
 
 # ---- main runs (d=128, N=12) ----------------------------------------------
-run A_mlp_main   --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 3000 "${REC[@]}"
+run A_mlp_main   --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 4000 "${REC[@]}"
 run B_mlp_main   --task logic      --arch mlp --d 128 --n 12 --depth-max 5 --steps 3000 "${REC[@]}"
 run C_mlp_main   --task recall     --arch mlp --d 128 --n 12 --depth-max 5 --p-trivial 0.0 --steps 3000 "${REC[@]}"
 
