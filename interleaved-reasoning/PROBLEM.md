@@ -23,11 +23,28 @@ The **mode controller** produces per stage `p_emit(l) = sigmoid(z_emit − z_lat
 from a 2-logit head on the LayerNorm'd state. Training is end-to-end
 differentiable; inference uses hard mode selection at threshold `τ = 0.5`.
 
+**Confidence-gated emission.** The emitted token is the readout's argmax — a
+*bold* value. Training with the full softmax expectation is not enough: when
+the readout is diffuse, the expectation is a mush that the hard mode never
+produces, so hard-mode emissions inject wrong values (measured: with an
+ungated controller, hard-mode emissions were net-harmful, CE 2.34× the
+full-latent baseline). The fix is a confidence gate on the readout's peak
+probability `maxp = max_v softmax(readout(h))_v`:
+
+- soft: `g = sigmoid((maxp − q)/t)`, and `h' = h + (p_emit·g)·Ē`
+- hard: emit iff `p_emit ≥ τ` **and** `maxp ≥ q`
+
+The same `(q, t)` at train and inference (identical semantics); the gate is a
+smooth function of a quantity the model itself learns (the readout), so it
+stays differentiable and unsupervised. `q ≤ 0` disables it. This is what
+closes the *content* half of the soft–hard gap (Failure 2): the mode decision
+and the emission decision become the same decision in both modes.
+
 **Soft training forward** (exact expectation of the additive hard rule — no
 sampling, fully differentiable, deterministic):
 
 ```
-h' = h + p_emit · E_{t ~ softmax(readout(h))} [ embed(t) ]
+h' = h + p_emit · g(maxp) · E_{t ~ softmax(readout(h))} [ embed(t) ]
 ```
 
 **Channel noise.** After every stage the latent state passes through
@@ -95,9 +112,13 @@ each task, with the best-dev checkpoint, hard mode at `τ = 0.5`:
    `corr(measured_difficulty, mode_count)` and `corr(label, mode_count)` —
    they may disagree (see §6).
 3. **Train-inference parity.**
-   `KL( Bern(p_soft) ‖ Bern(p_hard) ) < 0.1` nats, where `p_soft` is the mean
-   emit probability over (input, stage) and `p_hard` the hard-emit frequency
-   on the same set.
+   `KL( Bern(p_soft) ‖ Bern(p_hard) ) < 0.1` nats. `p_soft` is the mean
+   *effective* emission probability over (input, stage) in soft mode,
+   `p_soft = mean(p_emit · g)`; `p_hard` is the hard-emit frequency on the
+   same set, `freq(p_emit ≥ τ and maxp ≥ q)`. Measuring the effective (mode ×
+   gate) decision — not the raw mode probability — is what makes the parity
+   meaningful once emissions are confidence-gated: it is the quantity whose
+   train/inference mismatch the gate exists to remove.
 4. **No accuracy loss.**
    Test CE under hard mode `≤ 1.05 ×` the full-emit baseline CE **and**
    `≤ 1.05 ×` the full-latent baseline CE. Baselines are separately trained
@@ -126,10 +147,16 @@ supervision).
 | B logic | facts `A->B. B->C. ...` + distractor facts, query `Q A` | correct endpoint entity | number of facts given (chain edges + distractors) | number of hops actually needed (distractors are redundant) |
 | C recall | `start v; op1 ... opD` (dbl/add1/add2/sub1/sub2/half/nop) | correct final value | number of instructions given | number of non-`nop` instructions |
 
-Depth ranges: A: 2–7 ops; B: 2–8 hops; C: 2–8 instructions. Trivial
-components (`x 1`, distractor facts, `nop`) are injected stochastically, so
-`label` and `measured` genuinely differ on a substantial fraction of samples
-and the two correlations in criterion 2 can disagree.
+Depth ranges: A: 2–7 ops; B: 2–8 hops; C: 2–8 instructions (full generator
+range). Main runs are calibrated to A: 2–4, B: 2–5, C: 2–5 so that the
+full-latent baseline lands in a genuinely hard band (≈50–75% per tier; see
+`experiments/calibration.md`). In the main runs task A uses `p_trivial = 0`
+so that `label ≡ measured` (the model-experienced difficulty axis is
+monotone in #ops); the oracle-simplification axis (`x 1` components) is
+re-introduced as the `A_abl_redundant` ablation, where `label` and `measured`
+genuinely differ and the two correlations in criterion 2 are reported
+side-by-side. Tasks B and C keep their intrinsic redundancy (distractor
+facts / `nop` instructions).
 
 Splits: train 4096 / dev 512 / test 1024, deterministic from data seed 1234.
 

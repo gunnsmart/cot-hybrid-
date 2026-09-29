@@ -12,6 +12,8 @@ exactly one factor.
 | `A_abl_bare`     | all λ = 0 | ≥ 2 of the three signatures simultaneously. |
 | `A_abl_sig0`     | σ = 0 | **Failure 4 — latent blackout**: with a perfect latent channel, re-emitting an anchor is never worth its price, so adaptive emission vanishes (corr(measured, emits) collapses). |
 | `A_abl_reset`    | semantics = reset (reference sketch's blend) | informational: state-replacing vs additive emission. |
+| `A_abl_nogate`   | q_conf = 0 (confidence gate off) | **Failure 2 — soft-hard content gap**: diffuse-soft vs bold-hard emission; hard CE regresses toward the ungated calibration value (2.34x full-latent). |
+| `A_abl_redundant`| p_trivial = 0.4 (oracle-simplifiable `x 1` ops injected) | **difficulty-axis test**: with redundant surface, `label` (surface ops) and `measured` (nontrivial ops) diverge. Report `corr(label, emits)` vs `corr(measured, emits)`: does the controller track model-experienced difficulty or the oracle axis? |
 
 Interpretation template (from the JSON, in FINDINGS.md):
 

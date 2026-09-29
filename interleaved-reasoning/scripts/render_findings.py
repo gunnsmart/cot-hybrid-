@@ -24,6 +24,7 @@ ABLATIONS = {
     "A_abl_sig0":     "zero channel noise sigma=0   (expect: emission stops being useful)",
     "A_abl_reset":    "reset semantics instead of additive (informational variant)",
     "A_abl_redundant":"redundant surface p_trivial=0.4 (oracle 'measured' vs model-experienced difficulty)",
+    "A_abl_nogate":  "confidence gate off (q_conf=0)  (expect: Failure 2 content gap -> c4 vs latent)",
 }
 SCALING = ["A_scale_n4", "A_scale_n8", "A_scale_n12", "A_scale_n24", "A_scale_n48"]
 ARCH_A = {"A_gru": ("gru", "A_gru_emit", "A_gru_latent"),

@@ -57,6 +57,11 @@ def parse_args():
                    help="confidence gate: emit only when readout maxp >= q (<=0 disables)")
     p.add_argument("--t-conf", type=float, default=0.1,
                    help="softness of the confidence gate in training")
+    p.add_argument("--mode-bottleneck", type=int, default=0,
+                   help="mode head reads a low-dim projection of the state (0 = direct)")
+    p.add_argument("--content", default="argmax", choices=["argmax", "expectation"],
+                   help="soft-mode emission content: the hard-mode token (default, "
+                        "same content both modes) or the sketch's softmax expectation")
     p.add_argument("--train-n", type=int, default=4096)
     p.add_argument("--dev-n", type=int, default=512)
     p.add_argument("--test-n", type=int, default=1024)
@@ -90,7 +95,7 @@ def build_json(args):
                     "seed", "sigma", "lam_price", "lam_commit", "lam_nd", "v_min",
                     "tau", "semantics", "force", "train_n", "dev_n", "test_n",
                     "depth_max", "p_trivial", "reader_layers",
-                    "q_conf", "t_conf",
+                    "q_conf", "t_conf", "content", "mode_bottleneck",
                     "eval_every", "save_every", "push_every"]},
         "params": None,
         "curves": {"step": [], "train_loss": [], "dev_ce": [], "dev_acc": [],
@@ -114,7 +119,8 @@ def main():
                                  arch=args.arch, mechanism=mechanism,
                                  sigma=args.sigma,
                                  reader_layers=args.reader_layers,
-                                 q_conf=args.q_conf, t_conf=args.t_conf).to(DEVICE)
+                                 q_conf=args.q_conf, t_conf=args.t_conf,
+                                 content=args.content, mode_bottleneck=args.mode_bottleneck).to(DEVICE)
     if not args.resume:
         # fresh run: (re)write the progress JSON. On resume the existing JSON
         # holds the step history that `--resume` reads back below.
@@ -154,12 +160,15 @@ def main():
         i += args.batch
         X, y = collate([train_ds.samples[j] for j in idx], train_ds.max_len)
 
-        logits, P, _, _ = model.predict(X, mode="soft", force=force,
+        logits, P, _, G = model.predict(X, mode="soft", force=force,
                                      semantics=args.semantics)
         loss_task = F.cross_entropy(logits, y)
 
         if mechanism:
-            loss_price = args.lam_price * P.mean()
+            # Price the EXPECTED number of emissions, E[p * g]: each token
+            # actually written to the trace costs lam_price. (With the gate
+            # off, g == 1 and this reduces to the plain mean(p) price.)
+            loss_price = args.lam_price * (P * G).mean()
             loss_commit = args.lam_commit * (4.0 * P * (1.0 - P)).mean()
             p_in = P.mean(dim=1)
             var_in = p_in.var()
@@ -212,7 +221,8 @@ def main():
                                       arch=args.arch, mechanism=mechanism,
                                       sigma=args.sigma,
                                       reader_layers=args.reader_layers,
-                                      q_conf=args.q_conf, t_conf=args.t_conf).to(DEVICE)
+                                      q_conf=args.q_conf, t_conf=args.t_conf,
+                                      content=args.content, mode_bottleneck=args.mode_bottleneck).to(DEVICE)
     load_checkpoint(best_model, common.best_pt_path(args.run_id))
     test_res = full_test_eval(best_model, test_ds, tau=args.tau,
                               semantics=args.semantics, device=DEVICE,

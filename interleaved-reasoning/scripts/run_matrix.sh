@@ -47,6 +47,7 @@ run A_abl_bare     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.
 run A_abl_sig0     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --sigma 0.0 "${REC[@]}"
 run A_abl_reset    --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --semantics reset "${REC[@]}"
 run A_abl_redundant --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.4 --steps 2500 "${REC[@]}"
+run A_abl_nogate  --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --q-conf 0.0 "${REC[@]}"
 
 # ---- scaling: N = 4, 8, 12, 24, 48 (task A, mlp, d=96) ----------------------
 run A_scale_n4  --task arithmetic --d 96 --n 4  --depth-max 4 --p-trivial 0.0 --steps 2000 "${REC[@]}"

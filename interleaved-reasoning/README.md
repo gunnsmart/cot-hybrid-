@@ -31,8 +31,8 @@ deliberate ablation in this repo (see FINDINGS.md, "Negative results"):
 | # | Failure | Mechanism | Fix used here | Ablation proving necessity |
 |---|---|---|---|---|
 | 1 | Mode collapse | gradient asymmetry between branches early in training | non-degeneracy regularizer on Var across inputs of mean `p_emit` | `A_abl_nondeg` |
-| 2 | Soft-hard gap | soft mixture at train, hard selection at inference | mode-commitment term `4p(1-p)` (no temperature annealing) | `A_abl_nocommit` |
-| 3 | Token spam | emission "buys" compute, so `p_emit -> 1` everywhere | linear emission price `λ·mean(p_emit)` | `A_abl_noprice` |
+| 2 | Soft-hard gap | soft mixture at train, hard selection at inference — both in the *mode* decision and the *emitted content* (diffuse expectation vs bold argmax) | mode-commitment term `4p(1-p)` (no temperature annealing) + confidence gate: emit iff the readout is confident (`maxp ≥ q`), same `q` in soft and hard mode | `A_abl_nocommit` |
+| 3 | Token spam | emission "buys" compute, so `p_emit -> 1` everywhere | linear emission price `λ·E[p_emit·g]` (expected tokens actually written) | `A_abl_noprice` |
 | 4 | Latent blackout | latent branch carries no measurable contribution | additive emission + lossy latent channel make both branches load-bearing | `A_abl_sig0` |
 
 ## Repository layout
@@ -107,19 +107,22 @@ class InterleavedProcessor(nn.Module):
             logits = self.mode_head(F.layer_norm(h, [self.d]))
             if mode == "soft":
                 p_emit = torch.sigmoid(logits[..., 1] - logits[..., 0])
-                tok_soft = F.softmax(self.readout(h), dim=-1)
-                h = (1 - p_emit) * h + p_emit * (self.embed.weight.T @ tok_soft)
+                dist = F.softmax(self.readout(h), dim=-1)
+                maxp = dist.max(-1).values                    # readout confidence
+                g = torch.sigmoid((maxp - q_conf) / t_conf)   # confidence gate
+                h = h + p_emit * g * (dist @ self.embed.weight)
                 mode_logs.append(p_emit)
             else:
                 p_emit = torch.sigmoid(logits[..., 1] - logits[..., 0])
-                if (p_emit >= tau).any():
-                    tok = self.readout(h).argmax(-1)
+                dist = F.softmax(self.readout(h), dim=-1)
+                if ((p_emit >= tau) & (dist.max(-1).values >= q_conf)).any():
+                    tok = dist.argmax(-1)
                     tokens.append(tok)
-                    h = self.embed(tok)
+                    h = h + self.embed(tok)
         return h, tokens, mode_logs
 ```
 
-Three deviations from this sketch, all documented in `PROBLEM.md`:
+Four deviations from this sketch, all documented in `PROBLEM.md`:
 
 1. **Batched-matmul bug.** `self.embed.weight.T @ tok_soft` fails for general
    batch sizes (inner dims `vocab` vs `batch`). Fixed to `tok_soft @ self.embed.weight`.
@@ -130,14 +133,26 @@ Three deviations from this sketch, all documented in `PROBLEM.md`:
    `h_l = embed(t_l) + stage_l(h_{l-1})`; the sketch replaces the state.
    We implement the **spec (additive)** by default and keep the sketch's
    blend ("reset") as an ablation (`--semantics reset`).
+4. **Confidence-gated emission** (added during calibration, not in the
+   sketch). The sketch's soft forward trains on the full softmax expectation
+   while hard mode emits a single bold argmax — when the readout is diffuse,
+   hard emissions inject *wrong* values (calibration: ungated hard mode ran
+   2.34x the full-latent baseline's CE). The implementation gates both modes
+   on the readout's peak probability: soft `g = sigmoid((maxp - q)/t)`
+   multiplies the expected embedding, hard emits iff `p_emit >= tau` AND
+   `maxp >= q`. Same `(q, t)` at train and inference — identical semantics,
+   differentiable, unsupervised.
 
 ## Method in one paragraph
 
 The mode head outputs `p_emit = sigmoid(z_emit - z_latent)`. Training runs the
-soft forward `h' = h + p_emit · E_t~softmax(readout(h))[embed(t)]` (the exact
-expectation of the additive hard rule — differentiable, deterministic, no
+soft forward `h' = h + p_emit · g(maxp) · E_t~softmax(readout(h))[embed(t)]`
+(the expectation of the additive hard rule, **gated by the readout's
+confidence** `g = sigmoid((maxp − q)/t)` so diffuse beliefs do not train
+emissions hard mode would never make — differentiable, deterministic, no
 sampling), plus three unsupervised regularizers: an **emission price**
-(λ₁·mean p, kills spam), a **mode-commitment** term (λ₂·mean 4p(1−p), closes the
+(λ₁·E[p·g] — the expected number of tokens actually written, kills spam), a
+**mode-commitment** term (λ₂·mean 4p(1−p), closes the
 soft-hard gap without temperature annealing), and a **non-degeneracy** term
 (λ₃·ReLU(0.1 − Var_inputs(mean p))², kills collapse — the *same quantity* as
 criterion 1). The latent channel adds fixed noise `h ← h + σN(0,I)` identically

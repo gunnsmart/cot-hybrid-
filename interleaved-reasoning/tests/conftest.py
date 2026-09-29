@@ -53,6 +53,8 @@ def load_run(run_id):
                              sigma=c["sigma"],
                              reader_layers=c.get("reader_layers", 1),
                              q_conf=c.get("q_conf", 0.0),
-                             t_conf=c.get("t_conf", 0.1))
+                             t_conf=c.get("t_conf", 0.1),
+                             content=c.get("content", "argmax"),
+                             mode_bottleneck=c.get("mode_bottleneck", 0))
     load_checkpoint(m, common.best_pt_path(run_id))
     return m, j

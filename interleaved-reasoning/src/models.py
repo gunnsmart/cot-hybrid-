@@ -157,7 +157,8 @@ class InterleavedProcessor(nn.Module):
     def __init__(self, d: int, n_stages: int, vocab: int = VOCAB,
                  arch: str = "mlp", mechanism: bool = True,
                  sigma: float = 0.0, reader_layers: int = 1,
-                 q_conf: float = 0.35, t_conf: float = 0.1):
+                 q_conf: float = 0.35, t_conf: float = 0.1,
+                 content: str = "argmax", mode_bottleneck: int = 0):
         super().__init__()
         assert arch in STAGES, arch
         self.d, self.n_stages, self.vocab, self.arch, self.sigma = d, n_stages, vocab, arch, sigma
@@ -167,6 +168,13 @@ class InterleavedProcessor(nn.Module):
         # Soft: g = sigmoid((maxp - q_conf)/t_conf); hard: maxp >= q_conf.
         # q_conf <= 0 disables the gate (backward-compatible with early runs).
         self.q_conf, self.t_conf = q_conf, t_conf
+        # Soft-mode emission content: "argmax" (default) uses exactly the
+        # hard-mode token, so the soft/hard gap is purely in the DECISION
+        # (p*g vs the threshold) and never in the CONTENT; "expectation" is
+        # the reference sketch's full-softmax expectation (kept as ablation:
+        # it is what the content mismatch comes from).
+        assert content in ("argmax", "expectation")
+        self.content = content
         self.embed = nn.Embedding(vocab, d)
         if reader_layers == 1:
             self.reader = nn.GRUCell(d, d)
@@ -176,10 +184,21 @@ class InterleavedProcessor(nn.Module):
             self.reader_proj = nn.Linear(d * 2, d)
         self.stages = nn.ModuleList([STAGES[arch](d) for _ in range(n_stages)])
         self.mode_norm = nn.LayerNorm(d) if mechanism else nn.Identity()
-        self.mode_head = nn.Linear(d, 2) if mechanism else None
+        # mode_bottleneck > 0: mode decision reads a low-dim projection of the
+        # state (smoother, more input-invariant policy); 0 = direct head.
+        self.mode_bottleneck = mode_bottleneck
         if mechanism:
-            nn.init.zeros_(self.mode_head.weight)
-            nn.init.zeros_(self.mode_head.bias)      # p_emit = 0.5 at init
+            if mode_bottleneck > 0:
+                self.mode_head = nn.Sequential(
+                    nn.Linear(d, mode_bottleneck), nn.ReLU(), nn.Linear(mode_bottleneck, 2))
+            else:
+                self.mode_head = nn.Linear(d, 2)
+            for m_ in self.mode_head.modules() if mode_bottleneck > 0 else [self.mode_head]:
+                if isinstance(m_, nn.Linear):
+                    nn.init.zeros_(m_.weight)
+                    nn.init.zeros_(m_.bias)
+        else:
+            self.mode_head = None
         self.readout = nn.Linear(d, vocab)
 
     # -- parameter accounting ------------------------------------------------
@@ -248,7 +267,11 @@ class InterleavedProcessor(nn.Module):
 
             dist = F.softmax(self.readout(h), dim=-1)         # (B, vocab)
             maxp = dist.max(-1).values                        # (B,)
-            e = dist @ self.embed.weight                      # (B, d) expected embed
+            t_star = dist.argmax(-1)                          # (B,)
+            if self.content == "expectation":
+                e = dist @ self.embed.weight                  # sketch's expectation
+            else:
+                e = self.embed(t_star)                        # hard-mode content
 
             if mode == "soft":
                 if self.q_conf > 0:
