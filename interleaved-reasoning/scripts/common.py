@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -76,6 +77,33 @@ def git(cwd=REPO_ROOT):
     return _
 
 
+def _push_with_retry(max_attempts: int = 4) -> None:
+    """`git push origin HEAD` with retries for TRANSIENT failures
+    (GitHub 5xx, empty responses, network glitches -- they happen, and a
+    long matrix run must not die on a single hiccup).
+
+    Authentication failures fail fast: retrying a dead token wastes the
+    backoff window and the fix is a human re-connect, not time.
+    """
+    delays = [5, 15, 45]
+    last = ""
+    for attempt in range(max_attempts):
+        r = subprocess.run(["git", "push", "origin", "HEAD"], cwd=REPO_ROOT,
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            return
+        last = (r.stderr or r.stdout).strip()
+        if any(s in last for s in ("Invalid username or token",
+                                   "Invalid access token",
+                                   "Authentication failed",
+                                   "403: ", "401:")):
+            raise RuntimeError(f"git push origin HEAD failed: {last}")
+        if attempt < max_attempts - 1:
+            time.sleep(delays[attempt])
+    raise RuntimeError(
+        f"git push origin HEAD failed after {max_attempts} attempts: {last}")
+
+
 def push_step(run_id: str, step: int, push_every: int, dry_run: bool = False):
     """Commit+push the run's state every `push_every` steps.
 
@@ -97,7 +125,7 @@ def push_step(run_id: str, step: int, push_every: int, dry_run: bool = False):
     g("add", "--", *files)
     g("commit", "-m", f"{run_id}: step {step} (push rule: every {push_every} steps)",
       check=False)  # may find nothing staged if state did not change
-    g("push", "origin", "HEAD")  # raises on failure -> train() exits
+    _push_with_retry()  # raises on failure -> train() exits
     # Keep the local remote-tracking ref in sync (best effort: some
     # environments do not update it on push; the push itself already
     # succeeded, so a failed re-fetch must not abort training).
