@@ -1,5 +1,4 @@
 .venv/
-interleaved-reasoning/
-interleaved-reasoning-origin.git/
+interleaved-reasoning/runs/
 __pycache__/
 *.pyc
