@@ -1,5 +1,5 @@
 {
- "best_step": 250,
+ "best_step": null,
  "config": {
   "arch": "mlp",
   "batch": 96,
@@ -16,7 +16,7 @@
   "mode_bottleneck": 0,
   "n": 12,
   "p_trivial": 0.0,
-  "push_every": 250,
+  "push_every": 100,
   "q_conf": 0.45,
   "reader_layers": 2,
   "save_every": 500,
@@ -33,23 +33,13 @@
   "vocab": 64,
   "wd": 0.01
  },
- "created": "2026-09-29T11:07:35+00:00",
+ "created": "2026-09-29T12:34:41+00:00",
  "curves": {
-  "dev_acc": [
-   0.19141
-  ],
-  "dev_ce": [
-   2.32411
-  ],
-  "mean_p": [
-   0.44491
-  ],
-  "step": [
-   250
-  ],
-  "train_loss": [
-   2.19457
-  ]
+  "dev_acc": [],
+  "dev_ce": [],
+  "mean_p": [],
+  "step": [],
+  "train_loss": []
  },
  "negative_result": null,
  "params": {
