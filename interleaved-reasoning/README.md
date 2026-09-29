@@ -160,8 +160,10 @@ price on hard inputs. Inference is hard: emit iff `p_emit ≥ τ = 0.5`.
 This deliverable is tracked in the session repository (the git repository
 that contains this directory); every git command below resolves to it.
 
-- Every training run commits + pushes after **every 500 steps**
-  (`scripts/common.push_step`), and **refuses to continue** if a push fails.
+- Every training run commits + pushes **every 250 steps** by default
+  (`scripts/common.push_step`; the spec floor is 500 — "never run > 500
+  steps without pushing" — so the 250-step cadence still emits a push at
+  every 500/1000/1500... step), and **refuses to continue** if a push fails.
   The commit carries the run JSON (progress + metrics) and the current best
   checkpoint; a full fp16 snapshot of the latest weights is written to
   `runs/<id>/latest.pt` on disk at the same moment for resume.

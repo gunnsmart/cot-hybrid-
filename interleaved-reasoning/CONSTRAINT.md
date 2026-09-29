@@ -57,7 +57,8 @@ No curriculum, no stage gates, no scheduled knobs.
   commitment term.
 
 ## 7. Push rule (operational, not algorithmic)
-- Commit + push every 500 steps; refuse to continue on push failure;
+- Commit + push every 250 steps by default (spec floor: never more than 500
+  steps between pushes); refuse to continue on push failure;
   `scripts/recover_git.sh` refuses unpushed state. See `PROBLEM.md` §7.
 
 ## Interpretation notes (edge cases, decided and recorded)

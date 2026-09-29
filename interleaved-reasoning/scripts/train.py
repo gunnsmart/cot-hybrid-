@@ -56,7 +56,9 @@ def parse_args():
     p.add_argument("--test-n", type=int, default=1024)
     p.add_argument("--eval-every", type=int, default=250)
     p.add_argument("--save-every", type=int, default=500)
-    p.add_argument("--push-every", type=int, default=500)
+    p.add_argument("--push-every", type=int, default=250,
+                   help="spec floor is 500 ('never run >500 steps without "
+                        "pushing'); default 250 for finer live visibility")
     p.add_argument("--no-git", action="store_true", help="disable commit/push hook (tests)")
     p.add_argument("--resume", action="store_true", help="resume from runs/<run-id>/latest.pt")
     p.add_argument("--eval-batch", type=int, default=64)

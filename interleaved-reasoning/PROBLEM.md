@@ -152,7 +152,9 @@ Splits: train 4096 / dev 512 / test 1024, deterministic from data seed 1234.
 This deliverable is tracked in the session repository (the outer git repo
 containing this directory).
 
-- Commit + push after **every 500 training steps**: the run JSON
+- Commit + push **every 250 training steps** by default (the spec's
+  "every 500 steps / never run > 500 without pushing" is the *floor*; the
+  finer cadence means a push still lands at 500/1000/1500...): the run JSON
   (`results/<id>.json` — progress curves + metrics) and, when present, the
   current best checkpoint (`checkpoints/<id>.pt`). A full fp16 snapshot of
   the latest weights is written to `runs/<id>/latest.pt` on disk at the same

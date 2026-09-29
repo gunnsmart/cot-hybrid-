@@ -283,8 +283,9 @@ def sec_repro(L):
              f"; a test asserts this matches live `pytest --collect-only`).")
     L.append(f"- Data is generated deterministically from fixed seeds (data seed 1234); "
              f"each run's model seed is in its JSON config.")
-    L.append(f"- Push rule: every run commits+pushes every 500 steps; "
-             f"`scripts/recover_git.sh` refuses unpushed state (git log in this repo shows it).")
+    L.append(f"- Push rule: every run commits+pushes every 250 steps (spec "
+             f"floor 500; `--push-every` in each run's JSON); "
+             f"`scripts/recover_git.sh` refuses unpushed state (git history shows the cadence).")
     L.append(f"- Reproduce one run: `python -m scripts.train --run-id {list(MAIN_RUNS.values())[0]} "
              f"--task arithmetic --arch mlp --d 128 --n 12 --steps 3000`.")
     L.append("")

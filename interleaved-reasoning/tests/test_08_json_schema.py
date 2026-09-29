@@ -38,8 +38,10 @@ def test_schema(fname):
             assert k in j["test"]["hard"], f"{fname}: missing test.hard.{k}"
         # both correlations present (measurement rule)
         assert "c2_r_measured" in j["test"]["hard"] and "c2_r_label" in j["test"]["hard"]
-        # push rule config
-        assert j["config"]["push_every"] == 500, "push rule is exactly 500 steps"
+        # push rule: never run > 500 steps without pushing
+        # (default is finer, 250; the spec bound is the upper limit)
+        assert j["config"]["push_every"] <= 500, (
+            f"{fname}: push_every={j['config']['push_every']} > 500 violates the push rule")
         # param budget recorded
         assert set(j["params"]) >= {"stages", "mechanism", "base", "total",
                                      "overhead_pct"}
