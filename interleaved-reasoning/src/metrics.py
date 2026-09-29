@@ -145,10 +145,17 @@ def full_test_eval(model, dataset, tau=0.5, semantics="additive", device="cpu",
                   semantics=semantics, device=device, noise_seed=noise_seed)
     fl = evaluate(model, dataset, idx, mode="hard", tau=tau, force="latent",
                   semantics=semantics, device=device, noise_seed=noise_seed)
+    # c3: parity of the EFFECTIVE emission decision, aggregate Bernoulli KL
+    # between the soft side (E[p*g] over (input, stage)) and the hard side
+    # (freq(p >= tau and maxp >= q_conf)).
+    c3 = _kl_bernoulli(soft["p_eff"], hard["p_eff"])
+    hard["c3_kl"] = c3
+    soft["c3_kl"] = c3
     return {
         "hard": hard, "soft": soft,
         "force_emit": {"ce": fe["ce"], "acc": fe["acc"]},
         "force_latent": {"ce": fl["ce"], "acc": fl["acc"]},
+        "c3_kl": c3,
         "latent_gap": hard["acc"] - fl["acc"],
         "emit_gap": hard["acc"] - fe["acc"],
     }

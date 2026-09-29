@@ -115,10 +115,13 @@ def main():
                                  sigma=args.sigma,
                                  reader_layers=args.reader_layers,
                                  q_conf=args.q_conf, t_conf=args.t_conf).to(DEVICE)
-    common.write_json(common.run_json_path(args.run_id),
-                      {**build_json(args),
-                       "params": model.param_groups(),
-                       "curves": build_json(args)["curves"]})
+    if not args.resume:
+        # fresh run: (re)write the progress JSON. On resume the existing JSON
+        # holds the step history that `--resume` reads back below.
+        common.write_json(common.run_json_path(args.run_id),
+                          {**build_json(args),
+                           "params": model.param_groups(),
+                           "curves": build_json(args)["curves"]})
 
     train_ds = make_dataset(args.task, "train", args.train_n,
                             depth_max=args.depth_max, p_trivial=args.p_trivial)
@@ -224,9 +227,9 @@ def main():
         "soft": {k: v for k, v in test_res["soft"].items() if k != "counts"},
     }
     common.write_json(common.run_json_path(args.run_id), j)
+    save_checkpoint(best_model, common.latest_pt_path(args.run_id),
+                    dtype=torch.float16)  # resume snapshot (scratch dir)
     if not args.no_git:
-        save_checkpoint(best_model, common.latest_pt_path(args.run_id),
-                        dtype=torch.float16)
         common.push_step(args.run_id, args.steps, args.push_every)
 
     h = j["test"]["hard"]

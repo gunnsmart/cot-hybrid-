@@ -22,6 +22,7 @@ What broke when we removed a component, and whether the expected failure mode ap
 | A_abl_bare | removing ALL three regularizers (expect: all failures) | pending | pending |
 | A_abl_sig0 | zero channel noise sigma=0   (expect: emission stops being useful) | pending | pending |
 | A_abl_reset | reset semantics instead of additive (informational variant) | pending | pending |
+| A_abl_redundant | redundant surface p_trivial=0.4 (oracle 'measured' vs model-experienced difficulty) | pending | pending |
 
 Interpretation is written in `experiments/ABLATIONS.md` from the same JSON; nothing here is hand-edited after rendering.
 
@@ -42,7 +43,7 @@ Criterion 5: **0** architecture rows pass all row criteria (requirement: >= 2) -
 
 ## Scaling in N (task A, mlp, d=96)
 
-| N | acc | emits/input | c1 | c2 measured | c3 | mean p |
+| N | acc | emits/input | c1 | c2 measured | c3 | p_eff(hard) |
 |---|---|---|---|---|---|---|
 | n4 | pending |
 | n8 | pending |
@@ -76,7 +77,7 @@ Task A (with per-architecture baselines for c4) and task B (c1-c3 only):
 - Test suite: `pytest -q` (collection count reported here: **n/a** ; a test asserts this matches live `pytest --collect-only`).
 - Data is generated deterministically from fixed seeds (data seed 1234); each run's model seed is in its JSON config.
 - Push rule: every run commits+pushes every 250 steps (spec floor 500; `--push-every` in each run's JSON); `scripts/recover_git.sh` refuses unpushed state (git history shows the cadence).
-- Reproduce one run: `python -m scripts.train --run-id A_mlp_main --task arithmetic --arch mlp --d 128 --n 12 --steps 3000`.
+- Reproduce one run: `python -m scripts.train --run-id A_mlp_main ...` (see the run's JSON config once it exists).
 
 ---
 *Negative results are first-class: a refuted expectation above is a finding, not a bug.*

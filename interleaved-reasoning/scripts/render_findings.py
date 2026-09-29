@@ -23,6 +23,7 @@ ABLATIONS = {
     "A_abl_bare":     "removing ALL three regularizers (expect: all failures)",
     "A_abl_sig0":     "zero channel noise sigma=0   (expect: emission stops being useful)",
     "A_abl_reset":    "reset semantics instead of additive (informational variant)",
+    "A_abl_redundant":"redundant surface p_trivial=0.4 (oracle 'measured' vs model-experienced difficulty)",
 }
 SCALING = ["A_scale_n4", "A_scale_n8", "A_scale_n12", "A_scale_n24", "A_scale_n48"]
 ARCH_A = {"A_gru": ("gru", "A_gru_emit", "A_gru_latent"),
@@ -197,7 +198,7 @@ def sec_criteria(L):
 def sec_scaling(L):
     L.append("## Scaling in N (task A, mlp, d=96)")
     L.append("")
-    L.append("| N | acc | emits/input | c1 | c2 measured | c3 | mean p |")
+    L.append("| N | acc | emits/input | c1 | c2 measured | c3 | p_eff(hard) |")
     L.append("|---|---|---|---|---|---|---|")
     for rid in SCALING:
         j = load(rid)
@@ -207,7 +208,7 @@ def sec_scaling(L):
             continue
         L.append(f"| {j['config']['n']} | {f(h['acc'])} | {f(h['mean_emits'], 2)} "
                  f"| {f(h['c1_var_p'])} | {f(h['c2_r_measured'])} | {f(h['c3_kl'])} "
-                 f"| {f(h['p_soft'])} |")
+                 f"| {f(h['p_eff'])} |")
     L.append("")
 
 
@@ -247,8 +248,10 @@ def sec_analysis(L):
         prof = h["stage_profile"]
         L.append(f"### {task} ({rid})")
         L.append("")
+        so = j["test"]["soft"]
         L.append(f"acc={f(h['acc'])}, emits/input={f(h['mean_emits'],2)}, "
-                 f"p_soft={f(h['p_soft'])}, p_hard={f(h['p_hard'])}")
+                 f"p_eff(soft)={f(so['p_eff'])}, p_eff(hard)={f(h['p_eff'])}, "
+                 f"c3 KL={f(h['c3_kl'])}")
         L.append("")
         L.append("mean p_emit per stage:")
         L.append("")
@@ -286,8 +289,20 @@ def sec_repro(L):
     L.append(f"- Push rule: every run commits+pushes every 250 steps (spec "
              f"floor 500; `--push-every` in each run's JSON); "
              f"`scripts/recover_git.sh` refuses unpushed state (git history shows the cadence).")
-    L.append(f"- Reproduce one run: `python -m scripts.train --run-id {list(MAIN_RUNS.values())[0]} "
-             f"--task arithmetic --arch mlp --d 128 --n 12 --steps 3000`.")
+    rid = list(MAIN_RUNS.values())[0]
+    j = load(rid)
+    if j:
+        c = j["config"]
+        flags = ["task", "arch", "d", "n", "vocab", "steps", "batch", "sigma",
+                 "lam_price", "lam_commit", "lam_nd", "q_conf", "t_conf",
+                 "tau", "semantics", "force", "depth_max", "p_trivial",
+                 "reader_layers", "train_n", "dev_n", "test_n"]
+        cli = " ".join(f"--{k.replace('_', '-')} {c[k]}" for k in flags if k in c and c[k] is not None)
+        L.append(f"- Reproduce one run: `python -m scripts.train --run-id {rid} {cli}` "
+                 f"(push rule on; add `--no-git` to skip).")
+    else:
+        L.append(f"- Reproduce one run: `python -m scripts.train --run-id {rid} ...` "
+                 f"(see the run's JSON config once it exists).")
     L.append("")
 
 
