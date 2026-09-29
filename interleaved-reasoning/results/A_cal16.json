@@ -1,0 +1,65 @@
+{
+ "best_step": 250,
+ "config": {
+  "arch": "mlp",
+  "batch": 96,
+  "content": "expectation",
+  "d": 128,
+  "depth_max": 4,
+  "dev_n": 512,
+  "eval_every": 250,
+  "force": "none",
+  "lam_commit": 0.1,
+  "lam_nd": 10.0,
+  "lam_price": 0.2,
+  "lr": 0.0003,
+  "mode_bottleneck": 0,
+  "n": 12,
+  "p_trivial": 0.0,
+  "push_every": 250,
+  "q_conf": 0.35,
+  "reader_layers": 2,
+  "save_every": 500,
+  "seed": 0,
+  "semantics": "additive",
+  "sigma": 0.2,
+  "steps": 4000,
+  "t_conf": 0.1,
+  "task": "arithmetic",
+  "tau": 0.5,
+  "test_n": 1024,
+  "train_n": 4096,
+  "v_min": 0.1,
+  "vocab": 64,
+  "wd": 0.01
+ },
+ "created": "2026-09-29T10:29:54+00:00",
+ "curves": {
+  "dev_acc": [
+   0.22266
+  ],
+  "dev_ce": [
+   2.27321
+  ],
+  "mean_p": [
+   0.14663
+  ],
+  "step": [
+   250
+  ],
+  "train_loss": [
+   2.26871
+  ]
+ },
+ "negative_result": null,
+ "params": {
+  "base": 707648,
+  "mechanism": 514,
+  "overhead_pct": 0.25544688295165396,
+  "stages": 201216,
+  "total": 909378
+ },
+ "run_id": "A_cal16",
+ "status": "running",
+ "test": null
+}
