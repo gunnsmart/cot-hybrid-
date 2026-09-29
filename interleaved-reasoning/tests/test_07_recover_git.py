@@ -39,4 +39,4 @@ sh scripts/recover_git.sh
     assert r.returncode == 1, (
         "recover_git.sh must REFUSE when unpushed commits exist; "
         f"got rc={r.returncode}\n{r.stdout}\n{r.stderr}")
-    assert "REFUSING" in r.stdout
+    assert "REFUSING" in (r.stdout + r.stderr)

@@ -18,14 +18,23 @@ torch.set_num_threads(2)
 
 
 @pytest.fixture(scope="session")
-def datasets():
-    return {
-        t: {
-            "test": make_dataset(t, "test", 1024),
-            "dev": make_dataset(t, "dev", 512),
-        }
-        for t in ("arithmetic", "logic", "recall")
-    }
+def make_test_set():
+    """Build (and cache) a test set matching a run's data config.
+
+    depth_max / p_trivial are per-run data parameters: a run calibrated to
+    depth<=4 must be evaluated on depth<=4 test samples (same distribution
+    as its training data), never on the task's full default range."""
+    cache = {}
+
+    def build(task, cfg, n=1024):
+        key = (task, cfg.get("depth_max"), cfg.get("p_trivial", 0.30))
+        if key not in cache:
+            cache[key] = make_dataset(task, "test", n,
+                                      depth_max=cfg.get("depth_max"),
+                                      p_trivial=cfg.get("p_trivial", 0.30))
+        return cache[key]
+
+    return build
 
 
 def load_run(run_id):

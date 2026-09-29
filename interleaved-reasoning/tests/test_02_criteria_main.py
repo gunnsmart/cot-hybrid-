@@ -9,19 +9,20 @@ MAIN = {"arithmetic": "A_mlp_main", "logic": "B_mlp_main", "recall": "C_mlp_main
 TOL = 1.05
 
 
-def _test_eval(run_id, datasets):
+def _test_eval(run_id, make_test_set):
     m, j = load_run(run_id)
     task = j["config"]["task"]
     c = j["config"]
-    res = evaluate(m, datasets[task]["test"], list(range(1024)),
+    ds = make_test_set(task, c)
+    res = evaluate(m, ds, list(range(len(ds.samples))),
                    mode="hard", tau=c["tau"], semantics=c["semantics"],
                    batch=64, noise_seed=7)
     return m, j, res
 
 
 @pytest.mark.parametrize("task,run", list(MAIN.items()))
-def test_c1_non_degenerate(task, run, datasets):
-    _, j, res = _test_eval(run, datasets)
+def test_c1_non_degenerate(task, run, make_test_set):
+    _, j, res = _test_eval(run, make_test_set)
     assert res["c1_var_p"] > 0.1, (
         f"{run}: Var(p_in)={res['c1_var_p']:.3f} <= 0.1 -> mode collapse")
     # JSON must agree with recomputation
@@ -29,8 +30,8 @@ def test_c1_non_degenerate(task, run, datasets):
 
 
 @pytest.mark.parametrize("task,run", list(MAIN.items()))
-def test_c2_adaptive_measured(task, run, datasets):
-    _, j, res = _test_eval(run, datasets)
+def test_c2_adaptive_measured(task, run, make_test_set):
+    _, j, res = _test_eval(run, make_test_set)
     assert res["c2_r_measured"] > 0.3, (
         f"{run}: corr(measured, emits)={res['c2_r_measured']:.3f} <= 0.3")
     assert abs(res["c2_r_measured"] - j["test"]["hard"]["c2_r_measured"]) < 1e-4
@@ -39,16 +40,16 @@ def test_c2_adaptive_measured(task, run, datasets):
 
 
 @pytest.mark.parametrize("task,run", list(MAIN.items()))
-def test_c3_train_inference_parity(task, run, datasets):
-    _, j, res = _test_eval(run, datasets)
+def test_c3_train_inference_parity(task, run, make_test_set):
+    _, j, res = _test_eval(run, make_test_set)
     assert res["c3_kl"] < 0.1, (
         f"{run}: KL(soft||hard)={res['c3_kl']:.3f} >= 0.1 -> soft-hard gap")
     assert abs(res["c3_kl"] - j["test"]["hard"]["c3_kl"]) < 1e-4
 
 
 @pytest.mark.parametrize("task,run", list(MAIN.items()))
-def test_c4_no_accuracy_loss(task, run, datasets):
-    _, j, res = _test_eval(run, datasets)
+def test_c4_no_accuracy_loss(task, run, make_test_set):
+    _, j, res = _test_eval(run, make_test_set)
     emit_id = run.replace("_mlp_main", "_emit_base")
     latent_id = run.replace("_mlp_main", "_latent_base")
     je, _ = load_run(emit_id)

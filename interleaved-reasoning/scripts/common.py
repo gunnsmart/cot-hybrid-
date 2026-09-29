@@ -5,7 +5,7 @@ repository that contains this directory). All git commands run with cwd set
 to the deliverable root; git resolves the surrounding repository.
 
 Push rule (mandatory, see PROBLEM.md §7):
-  * commit + push after every 500 training steps
+  * commit + push after every 250 training steps (spec floor: 500)
   * never run > 500 steps without pushing
   * training REFUSES to continue if a push fails
   * scripts/recover_git.sh refuses if unpushed commits exist
@@ -98,4 +98,9 @@ def push_step(run_id: str, step: int, push_every: int, dry_run: bool = False):
     g("commit", "-m", f"{run_id}: step {step} (push rule: every {push_every} steps)",
       check=False)  # may find nothing staged if state did not change
     g("push", "origin", "HEAD")  # raises on failure -> train() exits
+    # Keep the local remote-tracking ref in sync (best effort: some
+    # environments do not update it on push; the push itself already
+    # succeeded, so a failed re-fetch must not abort training).
+    r = g("rev-parse", "--abbrev-ref", "HEAD")
+    g("fetch", "origin", r.stdout.strip(), check=False)
     return True

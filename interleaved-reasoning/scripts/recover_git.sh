@@ -2,12 +2,14 @@
 # recover_git.sh -- pre-flight guard for the push rule.
 #
 #   * refuses (exit 1) if this repository has ANY unpushed commits,
-#   * refuses if the upstream (origin/main) does not exist yet,
+#   * refuses if the upstream (origin/<current branch>) does not exist yet,
 #   * warns about uncommitted changes to results/ or checkpoints/.
 #
 # Run it before resuming training or before starting a new run:
 #     scripts/recover_git.sh
-set -euo pipefail
+set -eu
+# pipefail where the shell supports it (bash/zsh/ksh93); plain sh (dash) lacks it
+if (set -o pipefail) 2>/dev/null; then set -o pipefail; fi
 cd "$(dirname "$0")/.."
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"

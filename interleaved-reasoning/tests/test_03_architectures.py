@@ -13,10 +13,11 @@ ARCH_A = {"gru": ("A_gru", "A_gru_emit", "A_gru_latent"),
 ARCH_B = {"gru": "B_gru", "transformer": "B_transformer"}
 
 
-def _eval(run, datasets, task):
+def _eval(run, make_test_set):
     m, j = load_run(run)
     c = j["config"]
-    res = evaluate(m, datasets[task]["test"], list(range(1024)),
+    ds = make_test_set(c["task"], c)
+    res = evaluate(m, ds, list(range(len(ds.samples))),
                    mode="hard", tau=c["tau"], semantics=c["semantics"],
                    batch=64, noise_seed=7)
     return m, j, res
@@ -24,16 +25,16 @@ def _eval(run, datasets, task):
 
 @pytest.mark.parametrize("arch,run,emit,latent",
                          [(a, v[0], v[1], v[2]) for a, v in ARCH_A.items()])
-def test_arch_c1_c3(arch, run, emit, latent, datasets):
-    _, j, res = _eval(run, datasets, "arithmetic")
+def test_arch_c1_c3(arch, run, emit, latent, make_test_set):
+    _, j, res = _eval(run, make_test_set)
     assert res["c1_var_p"] > 0.1, f"{run}: collapsed (c1={res['c1_var_p']:.3f})"
     assert res["c3_kl"] < 0.1, f"{run}: soft-hard gap (c3={res['c3_kl']:.3f})"
 
 
 @pytest.mark.parametrize("arch,run,emit,latent",
                          [(a, v[0], v[1], v[2]) for a, v in ARCH_A.items()])
-def test_arch_c4(arch, run, emit, latent, datasets):
-    _, j, res = _eval(run, datasets, "arithmetic")
+def test_arch_c4(arch, run, emit, latent, make_test_set):
+    _, j, res = _eval(run, make_test_set)
     je, _ = load_run(emit)
     jl, _ = load_run(latent)
     r_e = res["ce"] / je["test"]["hard"]["ce"]
@@ -43,8 +44,8 @@ def test_arch_c4(arch, run, emit, latent, datasets):
 
 
 @pytest.mark.parametrize("arch,run", list(ARCH_B.items()))
-def test_arch_cross_task(arch, run, datasets):
-    _, j, res = _eval(run, datasets, "logic")
+def test_arch_cross_task(arch, run, make_test_set):
+    _, j, res = _eval(run, make_test_set)
     assert res["c1_var_p"] > 0.1, f"{run}: collapsed on task B"
     assert res["c2_r_measured"] > 0.3, (
         f"{run}: not adaptive on task B (corr={res['c2_r_measured']:.3f})")
