@@ -10,6 +10,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 PY="${PY:-.venv/bin/python}"
+[ -x "$PY" ] || PY="../.venv/bin/python"   # venv at the outer repo root
 [ -x "$PY" ] || PY="python3"
 
 # shared recipe (single phase, no curriculum) — the A_cal27 calibration
