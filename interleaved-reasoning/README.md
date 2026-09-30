@@ -18,9 +18,9 @@ from `results/*.json` — see [FINDINGS.md](FINDINGS.md).
 <!-- RESULTS:BEGIN -->
 | task | acc (hard) | emits/input | c2 corr(measured) | status |
 |---|---|---|---|---|
-| arithmetic | pending | | | running |
-| logic | pending | | | running |
-| recall | pending | | | running |
+| arithmetic | 0.733 | 1.99 | 0.308 | done |
+| logic | 0.574 | 0.11 | 0.235 | done |
+| recall | 0.961 | 0.94 | 0.121 | done |
 <!-- RESULTS:END -->
 
 ## The four failure modes
