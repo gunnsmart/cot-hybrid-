@@ -87,6 +87,7 @@
    0.74014
   ]
  },
+ "finished": "2026-09-30T04:51:02+00:00",
  "negative_result": null,
  "params": {
   "base": 401728,
@@ -96,6 +97,115 @@
   "total": 1073344
  },
  "run_id": "A_tf_latent",
- "status": "running",
- "test": null
+ "seconds": 242.9,
+ "status": "done",
+ "test": {
+  "c3_kl": 0.0,
+  "emit_gap": 0.2822265625,
+  "force_emit": {
+   "acc": 0.30078125,
+   "ce": 3.2170230448246
+  },
+  "force_latent": {
+   "acc": 0.5830078125,
+   "ce": 1.0089162103831768
+  },
+  "hard": {
+   "acc": 0.5830078125,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 1.0089162103831768,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": 0.0,
+   "p_soft": null,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "latent_gap": 0.0,
+  "soft": {
+   "acc": 0.5986328125,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 0.9760302118957043,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": null,
+   "p_soft": 0.0,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
 }
