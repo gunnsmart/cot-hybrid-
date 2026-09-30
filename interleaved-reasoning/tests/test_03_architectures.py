@@ -3,7 +3,7 @@ are covered in test_02; here: GRU, SSM, transformer on task A with their own
 baselines, plus GRU/transformer on task B)."""
 import pytest
 
-from src.metrics import evaluate
+from src.metrics import full_test_eval
 from tests.conftest import load_run
 
 TOL = 1.05
@@ -17,9 +17,8 @@ def _eval(run, make_test_set):
     m, j = load_run(run)
     c = j["config"]
     ds = make_test_set(c["task"], c)
-    res = evaluate(m, ds, list(range(len(ds.samples))),
-                   mode="hard", tau=c["tau"], semantics=c["semantics"],
-                   batch=64, noise_seed=7)
+    res = full_test_eval(m, ds, tau=c["tau"], semantics=c["semantics"],
+                         batch=64, noise_seed=7)["hard"]
     return m, j, res
 
 
@@ -35,8 +34,8 @@ def test_arch_c1_c3(arch, run, emit, latent, make_test_set):
                          [(a, v[0], v[1], v[2]) for a, v in ARCH_A.items()])
 def test_arch_c4(arch, run, emit, latent, make_test_set):
     _, j, res = _eval(run, make_test_set)
-    je, _ = load_run(emit)
-    jl, _ = load_run(latent)
+    _, je = load_run(emit)   # load_run returns (model, json)
+    _, jl = load_run(latent)
     r_e = res["ce"] / je["test"]["hard"]["ce"]
     r_l = res["ce"] / jl["test"]["hard"]["ce"]
     assert r_e <= TOL, f"{run}: vs emit baseline {r_e:.3f} > {TOL}"

@@ -10,6 +10,11 @@ def hard(rid):
     return common.read_json(common.run_json_path(rid))["test"]["hard"]
 
 
+def _n_of(run):
+    """A_scale_n48 -> 48 (id suffix after the final 'n')."""
+    return int(run.rsplit("n", 1)[-1])
+
+
 @pytest.mark.parametrize("run", SCALE)
 def test_scaling_runs_exist(run):
     import os
@@ -19,7 +24,7 @@ def test_scaling_runs_exist(run):
     assert os.path.exists(p), f"missing {run}.json"
     j = common.read_json(common.run_json_path(run))
     assert j["status"] == "done"
-    assert j["config"]["n"] == int(run[-2:])
+    assert j["config"]["n"] == _n_of(run)
 
 
 @pytest.mark.parametrize("run", SCALE)
@@ -30,8 +35,8 @@ def test_scaling_c1_c3(run):
     if not os.path.exists(common.run_json_path(run)):
         pytest.skip(f"run {run} not available yet")
     h = hard(run)
-    assert h["c1_var_p"] > 0.1, f"{run}: collapsed at N={h and int(run[-2:])}"
-    assert h["c3_kl"] < 0.1, f"{run}: soft-hard gap at N={int(run[-2:])}"
+    assert h["c1_var_p"] > 0.1, f"{run}: collapsed at N={_n_of(run)}"
+    assert h["c3_kl"] < 0.1, f"{run}: soft-hard gap at N={_n_of(run)}"
 
 
 def test_scaling_accuracy_not_catastrophic():

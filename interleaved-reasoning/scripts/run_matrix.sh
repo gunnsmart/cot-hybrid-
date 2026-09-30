@@ -17,6 +17,7 @@ PY="${PY:-.venv/bin/python}"
 # winner (sigma 0.1, gate q 0.30, expectation content; see experiments/calibration.md):
 REC=( --sigma 0.1 --lam-price 0.2 --lam-commit 0.1 --lam-nd 20 --reader-layers 2 --batch 96 --q-conf 0.30 --content expectation --push-every 100 )
 
+# หมายเหตุ: ธงที่ต้องการทับค่า REC ต้องอยู่ "หลัง" "${REC[@]}" (argparse ตัวหลังชนะ)
 run() { # run <run-id> <args...>
   local id="$1"; shift
   if [ -f "results/$id.json" ] && grep -q '"status": "done"' "results/$id.json"; then
@@ -42,14 +43,14 @@ run C_emit_base   --task recall     --arch mlp --d 128 --n 12 --depth-max 5 --p-
 run C_latent_base --task recall     --arch mlp --d 128 --n 12 --depth-max 5 --p-trivial 0.0 --steps 3000 --force latent "${REC[@]}"
 
 # ---- ablations (task A, same recipe, 2500 steps): which component is needed?
-run A_abl_noprice  --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --lam-price 0.0 "${REC[@]}"
-run A_abl_nocommit --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --lam-commit 0.0 "${REC[@]}"
-run A_abl_nondeg   --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --lam-nd 0.0 "${REC[@]}"
-run A_abl_bare     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --lam-price 0.0 --lam-commit 0.0 --lam-nd 0.0 "${REC[@]}"
-run A_abl_sig0     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --sigma 0.0 "${REC[@]}"
+run A_abl_noprice  --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --lam-price 0.0
+run A_abl_nocommit --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --lam-commit 0.0
+run A_abl_nondeg   --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --lam-nd 0.0
+run A_abl_bare     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --lam-price 0.0 --lam-commit 0.0 --lam-nd 0.0
+run A_abl_sig0     --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --sigma 0.0
 run A_abl_reset    --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --semantics reset "${REC[@]}"
 run A_abl_redundant --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.4 --steps 2500 "${REC[@]}"
-run A_abl_nogate  --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --q-conf 0.0 "${REC[@]}"
+run A_abl_nogate  --task arithmetic --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --q-conf 0.0
 
 # ---- scaling: N = 4, 8, 12, 24, 48 (task A, mlp, d=96) ----------------------
 run A_scale_n4  --task arithmetic --d 96 --n 4  --depth-max 4 --p-trivial 0.0 --steps 2000 "${REC[@]}"

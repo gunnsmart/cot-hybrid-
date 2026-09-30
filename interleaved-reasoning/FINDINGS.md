@@ -16,14 +16,14 @@ What broke when we removed a component, and whether the expected failure mode ap
 
 | ablation | expected failure | observed (test) | verdict |
 |---|---|---|---|
-| A_abl_noprice | removing the emission price  (expect: Failure 3, token spam) | emits=1.92/12 stages | refuted |
-| A_abl_nocommit | removing mode commitment     (expect: Failure 2, soft-hard gap) | c3 KL=0.003 (need <0.1) | refuted |
-| A_abl_nondeg | removing the non-degeneracy term (expect: Failure 1, mode collapse) | c1 var=0.224 (need >0.1) | refuted |
-| A_abl_bare | removing ALL three regularizers (expect: all failures) | var=0.224, KL=0.003, emits=1.92 | refuted |
-| A_abl_sig0 | zero channel noise sigma=0   (expect: emission stops being useful) | c2 corr=0.264 (full recipe: 0.308) | refuted |
+| A_abl_noprice | removing the emission price  (expect: Failure 3, token spam) | pending | pending |
+| A_abl_nocommit | removing mode commitment     (expect: Failure 2, soft-hard gap) | pending | pending |
+| A_abl_nondeg | removing the non-degeneracy term (expect: Failure 1, mode collapse) | pending | pending |
+| A_abl_bare | removing ALL three regularizers (expect: all failures) | pending | pending |
+| A_abl_sig0 | zero channel noise sigma=0   (expect: emission stops being useful) | pending | pending |
 | A_abl_reset | reset semantics instead of additive (informational variant) | acc=0.580, emits=0.27, KL=0.003 | info |
 | A_abl_redundant | redundant surface p_trivial=0.4 (oracle 'measured' vs model-experienced difficulty) | acc=0.694, emits=2.73, KL=0.003 | info |
-| A_abl_nogate | confidence gate off (q_conf=0)  (expect: Failure 2 content gap -> c4 vs latent) | acc=0.715, emits=1.92, KL=0.003 | info |
+| A_abl_nogate | confidence gate off (q_conf=0)  (expect: Failure 2 content gap -> c4 vs latent) | pending | pending |
 
 Interpretation is written in `experiments/ABLATIONS.md` from the same JSON; nothing here is hand-edited after rendering.
 

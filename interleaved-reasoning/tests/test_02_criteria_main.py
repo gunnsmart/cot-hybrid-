@@ -2,7 +2,7 @@
 recomputed test numbers must match the JSON (no drift)."""
 import pytest
 
-from src.metrics import evaluate
+from src.metrics import full_test_eval
 from tests.conftest import load_run
 
 MAIN = {"arithmetic": "A_mlp_main", "logic": "B_mlp_main", "recall": "C_mlp_main"}
@@ -14,9 +14,10 @@ def _test_eval(run_id, make_test_set):
     task = j["config"]["task"]
     c = j["config"]
     ds = make_test_set(task, c)
-    res = evaluate(m, ds, list(range(len(ds.samples))),
-                   mode="hard", tau=c["tau"], semantics=c["semantics"],
-                   batch=64, noise_seed=7)
+    # full_test_eval is what produced the JSON numbers (hard+soft passes,
+    # c3 KL from both sides) — recompute the same way so drift checks work.
+    res = full_test_eval(m, ds, tau=c["tau"], semantics=c["semantics"],
+                         batch=64, noise_seed=7)["hard"]
     return m, j, res
 
 
@@ -52,8 +53,8 @@ def test_c4_no_accuracy_loss(task, run, make_test_set):
     _, j, res = _test_eval(run, make_test_set)
     emit_id = run.replace("_mlp_main", "_emit_base")
     latent_id = run.replace("_mlp_main", "_latent_base")
-    je, _ = load_run(emit_id)
-    jl, _ = load_run(latent_id)
+    _, je = load_run(emit_id)   # load_run returns (model, json)
+    _, jl = load_run(latent_id)
     ce_emit = je["test"]["hard"]["ce"]
     ce_latent = jl["test"]["hard"]["ce"]
     r_emit = res["ce"] / ce_emit
