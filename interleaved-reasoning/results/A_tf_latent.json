@@ -1,5 +1,5 @@
 {
- "best_step": 250,
+ "best_step": 500,
  "config": {
   "arch": "transformer",
   "batch": 96,
@@ -37,19 +37,24 @@
  "created": "2026-09-30T04:46:58+00:00",
  "curves": {
   "dev_acc": [
-   0.28906
+   0.28906,
+   0.40625
   ],
   "dev_ce": [
-   2.21939
+   2.21939,
+   1.66932
   ],
   "mean_p": [
+   0.0,
    0.0
   ],
   "step": [
-   250
+   250,
+   500
   ],
   "train_loss": [
-   2.08315
+   2.08315,
+   1.47695
   ]
  },
  "negative_result": null,
