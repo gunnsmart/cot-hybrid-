@@ -126,6 +126,24 @@ emissions by measured difficulty:
 corr(measured, emits) = 0.121 ; corr(label, emits) = 0.121 (agree).
 Contribution of each mode (hybrid hard vs forced): latent gap = 0.085, emit gap = 0.521.
 
+## Phase 2 - pressure regimes
+
+Regimes designed to FORCE externalizing state (hypotheses in `experiments/PHASE2.md`). r_emit / r_latent = hybrid test CE ÷ specialist test CE re-trained in the SAME regime (tolerance 1.05); schedule rows have no specialists and are compared against the controller in the summary lines below.
+
+| run | regime | acc | ce | c1 | c2 | c3 KL | emits | r_emit | r_latent |
+|---|---|---|---|---|---|---|---|---|---|
+| A_s03 | sigma=0.3 (lossy channel) | pending |
+| A_s05 | sigma=0.5 (lossy channel) | pending |
+| A_bneck | gradual input reader | pending |
+| A_sched4 | forced schedule k=4 (~3 emits) | pending |
+| A_sched2 | forced schedule k=2 (6 emits) | pending |
+
+- **H1 (lossy channel)**: r_latent at sigma=0.3 -> pending, at sigma=0.5 -> pending; phase-1 reference (sigma=0.1) r_emit/r_latent = 0.444/1.237. Prediction: r_latent falls as sigma rises and c4 <= 1.05 at some sigma. Verdict: **pending**.
+- **H2 (information over time)**: r_latent with the gradual reader -> pending vs phase-1 1.237; c2 measured pending vs phase-1 0.308. Prediction: r_latent improves AND c2 strengthens. Verdict: **pending**.
+- **H3 (controller vs fixed schedule)**: controller CE 0.846 (1.99 emits) vs fixed schedule k=4 CE pending (pending emits) and k=2 CE pending (pending emits). Prediction: the controller beats the budget-matched schedule (k=4, within 1.05). Verdict: **pending**.
+
+H4 (deep tasks, depth 8-12, d=192) is held back until H1/H2 show signal; schedule-run emit counts are asserted to equal N/k (±0.5) by `tests/test_09_phase2.py`.
+
 ## Reproducibility
 
 - All numbers above are rendered by `scripts/render_findings.py` from `results/*.json`. Regenerate with `python -m scripts.render_findings`.

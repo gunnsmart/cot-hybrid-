@@ -31,6 +31,17 @@ ARCH_A = {"A_gru": ("gru", "A_gru_emit", "A_gru_latent"),
           "A_ssm": ("ssm", "A_ssm_emit", "A_ssm_latent"),
           "A_transformer": ("transformer", "A_tf_emit", "A_tf_latent")}
 ARCH_B = {"B_gru": ("gru", None, None), "B_transformer": ("transformer", None, None)}
+# PHASE 2 pressure regimes (experiments/PHASE2.md): hybrid run -> (regime
+# label, same-regime emit specialist, same-regime latent specialist).
+# Schedule rows have no specialists; they are compared against the
+# controller (A_mlp_main) in the hypothesis summary lines.
+PHASE2_REGIMES = [
+    ("A_s03", "sigma=0.3 (lossy channel)", "A_s03_emit", "A_s03_latent"),
+    ("A_s05", "sigma=0.5 (lossy channel)", "A_s05_emit", "A_s05_latent"),
+    ("A_bneck", "gradual input reader", "A_bneck_emit", "A_bneck_latent"),
+    ("A_sched4", "forced schedule k=4 (~3 emits)", None, None),
+    ("A_sched2", "forced schedule k=2 (6 emits)", None, None),
+]
 TOL = 1.05
 
 
@@ -275,6 +286,91 @@ def sec_analysis(L):
         L.append("")
 
 
+def sec_phase2(L):
+    L.append("## Phase 2 - pressure regimes")
+    L.append("")
+    L.append("Regimes designed to FORCE externalizing state (hypotheses in "
+             "`experiments/PHASE2.md`). r_emit / r_latent = hybrid test CE ÷ "
+             "specialist test CE re-trained in the SAME regime (tolerance "
+             f"{TOL}); schedule rows have no specialists and are compared "
+             "against the controller in the summary lines below.")
+    L.append("")
+    L.append("| run | regime | acc | ce | c1 | c2 | c3 KL | emits | r_emit | r_latent |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|")
+    jmain = load("A_mlp_main")
+    hm = hard(jmain)
+    re_ref = rl_ref = None
+    if hm is not None:
+        re_ref, rl_ref = ratios(jmain, "A_emit_base", "A_latent_base")
+    data = {}
+    for rid, regime, eb, lb in PHASE2_REGIMES:
+        j = load(rid)
+        h = hard(j)
+        if h is None:
+            data[rid] = None
+            L.append(f"| {rid} | {regime} | pending |")
+            continue
+        re_ = rl = None
+        if eb and lb:
+            re_, rl = ratios(j, eb, lb)
+        data[rid] = {"h": h, "re": re_, "rl": rl}
+        re_s = f(re_, 3) if (eb and lb) else "-"
+        rl_s = f(rl, 3) if (eb and lb) else "-"
+        L.append(f"| {rid} | {regime} | {f(h['acc'])} | {f(h['ce'])} | {f(h['c1_var_p'])} "
+                 f"| {f(h['c2_r_measured'])} | {f(h['c3_kl'])} | {f(h['mean_emits'], 2)} "
+                 f"| {re_s} | {rl_s} |")
+    L.append("")
+
+    def st(rid, key):
+        d = data.get(rid)
+        return d[key] if d else None
+
+    # -- H1: lossy channel ---------------------------------------------------
+    rl03, rl05 = st("A_s03", "rl"), st("A_s05", "rl")
+    if rl_ref is None or rl03 is None or rl05 is None:
+        v1 = "pending"
+    else:
+        ok = (rl03 < rl_ref and rl05 <= rl03
+              and (c4_pass(st("A_s03", "re"), rl03) or c4_pass(st("A_s05", "re"), rl05)))
+        v1 = "confirmed" if ok else "refuted"
+    L.append(f"- **H1 (lossy channel)**: r_latent at sigma=0.3 -> {f(rl03, 3)}, at sigma=0.5 -> "
+             f"{f(rl05, 3)}; phase-1 reference (sigma=0.1) r_emit/r_latent = "
+             f"{f(re_ref, 3)}/{f(rl_ref, 3)}. Prediction: r_latent falls as sigma rises and "
+             f"c4 <= {TOL} at some sigma. Verdict: **{v1}**.")
+    # -- H2: information over time --------------------------------------------
+    rl_b, c2_b = st("A_bneck", "rl"), st("A_bneck", "h")
+    c2_b = c2_b["c2_r_measured"] if c2_b else None
+    c2_ref = hm["c2_r_measured"] if hm is not None else None
+    if rl_b is None or rl_ref is None or c2_b is None or c2_ref is None:
+        v2 = "pending"
+    else:
+        v2 = "confirmed" if (rl_b < rl_ref and c2_b > c2_ref) else "refuted"
+    L.append(f"- **H2 (information over time)**: r_latent with the gradual reader -> {f(rl_b, 3)} "
+             f"vs phase-1 {f(rl_ref, 3)}; c2 measured {f(c2_b, 3)} vs phase-1 {f(c2_ref, 3)}. "
+             f"Prediction: r_latent improves AND c2 strengthens. Verdict: **{v2}**.")
+    # -- H3: controller vs fixed schedule --------------------------------------
+    ce_main = hm["ce"] if hm is not None else None
+    em_main = hm["mean_emits"] if hm is not None else None
+    h4, h2 = st("A_sched4", "h"), st("A_sched2", "h")
+    ce4 = h4["ce"] if h4 else None
+    ce2 = h2["ce"] if h2 else None
+    em4 = h4["mean_emits"] if h4 else None
+    em2 = h2["mean_emits"] if h2 else None
+    if ce_main is None or ce4 is None:
+        v3 = "pending"
+    else:
+        v3 = "confirmed" if ce_main <= TOL * ce4 else "refuted"
+    L.append(f"- **H3 (controller vs fixed schedule)**: controller CE {f(ce_main)} "
+             f"({f(em_main, 2)} emits) vs fixed schedule k=4 CE {f(ce4)} ({f(em4, 2)} emits) "
+             f"and k=2 CE {f(ce2)} ({f(em2, 2)} emits). Prediction: the controller beats the "
+             f"budget-matched schedule (k=4, within {TOL}). Verdict: **{v3}**.")
+    L.append("")
+    L.append("H4 (deep tasks, depth 8-12, d=192) is held back until H1/H2 show signal; "
+             "schedule-run emit counts are asserted to equal N/k (±0.5) by "
+             "`tests/test_09_phase2.py`.")
+    L.append("")
+
+
 def sec_repro(L):
     L.append("## Reproducibility")
     L.append("")
@@ -318,6 +414,7 @@ def render():
     sec_scaling(L)
     sec_arch(L)
     sec_analysis(L)
+    sec_phase2(L)
     sec_repro(L)
     L.append("---")
     L.append("*Negative results are first-class: a refuted expectation above is a finding, "

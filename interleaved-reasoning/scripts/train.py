@@ -49,10 +49,18 @@ def parse_args():
     p.add_argument("--v-min", type=float, default=0.1, help="variance floor (criterion 1 threshold)")
     p.add_argument("--tau", type=float, default=0.5, help="hard decision threshold at inference")
     p.add_argument("--semantics", default="additive", choices=["additive", "reset"])
-    p.add_argument("--force", default="none", choices=["none", "emit", "latent"],
-                   help="baseline: force one mode (no mode mechanism trained)")
+    p.add_argument("--force", default="none", choices=["none", "emit", "latent", "schedule"],
+                   help="baseline: force one mode (no mode mechanism trained); "
+                        "'schedule' = unconditional emit every --schedule-every-th "
+                        "stage, confidence gate bypassed (PHASE 2 H3)")
     p.add_argument("--reader-layers", type=int, default=1, choices=[1, 2],
                    help="input reader depth (task interface, not a stage)")
+    p.add_argument("--reader-mode", default="full", choices=["full", "gradual"],
+                   help="'full' = reader sees the whole input before stage 0; "
+                        "'gradual' = input split into N+1 chunks, chunk l+1 "
+                        "injected after stage l (PHASE 2 H2)")
+    p.add_argument("--schedule-every", type=int, default=6,
+                   help="with --force schedule: emit every k-th stage (PHASE 2 H3)")
     p.add_argument("--q-conf", type=float, default=0.35,
                    help="confidence gate: emit only when readout maxp >= q (<=0 disables)")
     p.add_argument("--t-conf", type=float, default=0.1,
@@ -99,6 +107,7 @@ def build_json(args):
                     "tau", "semantics", "force", "train_n", "dev_n", "test_n",
                     "depth_max", "p_trivial", "reader_layers",
                     "q_conf", "t_conf", "content", "mode_bottleneck", "gate_ema",
+                    "reader_mode", "schedule_every",
                     "eval_every", "save_every", "push_every"]},
         "params": None,
         "curves": {"step": [], "train_loss": [], "dev_ce": [], "dev_acc": [],
@@ -116,7 +125,10 @@ def main():
     torch.set_num_threads(2)
 
     force = None if args.force == "none" else args.force
-    mechanism = force is None
+    # schedule (PHASE 2 H3) is a fixed-position baseline: the mode head is
+    # NOT trained (it does not exist), emissions follow the fixed table.
+    mechanism = args.force == "none"
+    schedule_every = args.schedule_every if args.force == "schedule" else None
 
     model = InterleavedProcessor(d=args.d, n_stages=args.n, vocab=args.vocab,
                                  arch=args.arch, mechanism=mechanism,
@@ -124,7 +136,9 @@ def main():
                                  reader_layers=args.reader_layers,
                                  q_conf=args.q_conf, t_conf=args.t_conf,
                                  content=args.content, mode_bottleneck=args.mode_bottleneck,
-                                 gate_ema=args.gate_ema).to(DEVICE)
+                                 gate_ema=args.gate_ema,
+                                 reader_mode=args.reader_mode,
+                                 schedule_every=schedule_every).to(DEVICE)
     if not args.resume:
         # fresh run: (re)write the progress JSON. On resume the existing JSON
         # holds the step history that `--resume` reads back below.
@@ -227,7 +241,9 @@ def main():
                                       reader_layers=args.reader_layers,
                                       q_conf=args.q_conf, t_conf=args.t_conf,
                                       content=args.content, mode_bottleneck=args.mode_bottleneck,
-                                      gate_ema=args.gate_ema).to(DEVICE)
+                                      gate_ema=args.gate_ema,
+                                      reader_mode=args.reader_mode,
+                                      schedule_every=schedule_every).to(DEVICE)
     load_checkpoint(best_model, common.best_pt_path(args.run_id))
     test_res = full_test_eval(best_model, test_ds, tau=args.tau,
                               semantics=args.semantics, device=DEVICE,
