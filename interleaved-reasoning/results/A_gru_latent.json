@@ -87,6 +87,7 @@
    1.06142
   ]
  },
+ "finished": "2026-09-30T04:36:58+00:00",
  "negative_result": null,
  "params": {
   "base": 401728,
@@ -96,6 +97,115 @@
   "total": 1072192
  },
  "run_id": "A_gru_latent",
- "status": "running",
- "test": null
+ "seconds": 200.5,
+ "status": "done",
+ "test": {
+  "c3_kl": 0.0,
+  "emit_gap": 0.5556640625,
+  "force_emit": {
+   "acc": 0.16015625,
+   "ce": 2.846304267644882
+  },
+  "force_latent": {
+   "acc": 0.7158203125,
+   "ce": 0.8676802441477776
+  },
+  "hard": {
+   "acc": 0.7158203125,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 0.8676802441477776,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": 0.0,
+   "p_soft": null,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "latent_gap": 0.0,
+  "soft": {
+   "acc": 0.7431640625,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 0.8403640352189541,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": null,
+   "p_soft": 0.0,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
 }
