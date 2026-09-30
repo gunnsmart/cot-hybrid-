@@ -1,5 +1,5 @@
 {
- "best_step": null,
+ "best_step": 250,
  "config": {
   "arch": "gru",
   "batch": 96,
@@ -36,11 +36,21 @@
  },
  "created": "2026-09-30T04:51:06+00:00",
  "curves": {
-  "dev_acc": [],
-  "dev_ce": [],
-  "mean_p": [],
-  "step": [],
-  "train_loss": []
+  "dev_acc": [
+   0.03711
+  ],
+  "dev_ce": [
+   3.27932
+  ],
+  "mean_p": [
+   0.00398
+  ],
+  "step": [
+   250
+  ],
+  "train_loss": [
+   3.49092
+  ]
  },
  "negative_result": null,
  "params": {
