@@ -1,0 +1,211 @@
+{
+ "best_step": 2000,
+ "config": {
+  "arch": "transformer",
+  "batch": 96,
+  "content": "expectation",
+  "d": 96,
+  "depth_max": 4,
+  "dev_n": 512,
+  "eval_every": 250,
+  "force": "latent",
+  "gate_ema": 0.0,
+  "lam_commit": 0.1,
+  "lam_nd": 20.0,
+  "lam_price": 0.2,
+  "lr": 0.0003,
+  "mode_bottleneck": 0,
+  "n": 12,
+  "p_trivial": 0.0,
+  "push_every": 100,
+  "q_conf": 0.3,
+  "reader_layers": 2,
+  "save_every": 500,
+  "seed": 0,
+  "semantics": "additive",
+  "sigma": 0.1,
+  "steps": 2000,
+  "t_conf": 0.1,
+  "task": "arithmetic",
+  "tau": 0.5,
+  "test_n": 1024,
+  "train_n": 4096,
+  "v_min": 0.1,
+  "vocab": 64,
+  "wd": 0.01
+ },
+ "created": "2026-09-30T04:46:58+00:00",
+ "curves": {
+  "dev_acc": [
+   0.28906,
+   0.40625,
+   0.53125,
+   0.57812,
+   0.60352,
+   0.63086,
+   0.53906,
+   0.57227
+  ],
+  "dev_ce": [
+   2.21939,
+   1.66932,
+   1.52963,
+   1.37451,
+   1.35156,
+   1.26398,
+   1.51794,
+   1.2614
+  ],
+  "mean_p": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "step": [
+   250,
+   500,
+   750,
+   1000,
+   1250,
+   1500,
+   1750,
+   2000
+  ],
+  "train_loss": [
+   2.08315,
+   1.47695,
+   1.24647,
+   1.32308,
+   0.83436,
+   0.83764,
+   1.57715,
+   0.74014
+  ]
+ },
+ "finished": "2026-09-30T04:51:02+00:00",
+ "negative_result": null,
+ "params": {
+  "base": 401728,
+  "mechanism": 0,
+  "overhead_pct": 0.0,
+  "stages": 671616,
+  "total": 1073344
+ },
+ "run_id": "A_tf_latent",
+ "seconds": 242.9,
+ "status": "done",
+ "test": {
+  "c3_kl": 0.0,
+  "emit_gap": 0.2822265625,
+  "force_emit": {
+   "acc": 0.30078125,
+   "ce": 3.2170230448246
+  },
+  "force_latent": {
+   "acc": 0.5830078125,
+   "ce": 1.0089162103831768
+  },
+  "hard": {
+   "acc": 0.5830078125,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 1.0089162103831768,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": 0.0,
+   "p_soft": null,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "latent_gap": 0.0,
+  "soft": {
+   "acc": 0.5986328125,
+   "c1_var_p": 0.0,
+   "c2_r_label": 0.0,
+   "c2_r_measured": 0.0,
+   "c3_kl": 0.0,
+   "ce": 0.9760302118957043,
+   "emits_by_difficulty": {
+    "1": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 108
+    },
+    "2": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 516
+    },
+    "3": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 284
+    },
+    "4": {
+     "mean_emits": 0.0,
+     "mean_p": 0.0,
+     "n": 116
+    }
+   },
+   "mean_emits": 0.0,
+   "p_eff": 0.0,
+   "p_hard": null,
+   "p_soft": 0.0,
+   "stage_profile": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
+}
