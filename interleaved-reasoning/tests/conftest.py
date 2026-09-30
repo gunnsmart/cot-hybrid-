@@ -48,6 +48,7 @@ def load_run(run_id):
     assert j.get("status") == "done", f"run {run_id} is not done"
     c = j["config"]
     mechanism = c.get("force", "none") == "none"
+    # PHASE 2 keys are optional so phase-1 JSONs (without them) still load.
     m = InterleavedProcessor(d=c["d"], n_stages=c["n"], vocab=c["vocab"],
                              arch=c["arch"], mechanism=mechanism,
                              sigma=c["sigma"],
@@ -55,6 +56,9 @@ def load_run(run_id):
                              q_conf=c.get("q_conf", 0.0),
                              t_conf=c.get("t_conf", 0.1),
                              content=c.get("content", "argmax"),
-                             mode_bottleneck=c.get("mode_bottleneck", 0))
+                             mode_bottleneck=c.get("mode_bottleneck", 0),
+                             reader_mode=c.get("reader_mode", "full"),
+                             schedule_every=c.get("schedule_every")
+                             if c.get("force") == "schedule" else None)
     load_checkpoint(m, common.best_pt_path(run_id))
     return m, j

@@ -74,4 +74,29 @@ run A_tf_latent   --task arithmetic --arch transformer --d 96 --n 12 --depth-max
 run B_gru         --task logic --arch gru         --d 96 --n 12 --depth-max 5 --steps 2000 "${REC[@]}"
 run B_transformer --task logic --arch transformer --d 96 --n 12 --depth-max 5 --steps 2000 "${REC[@]}"
 
+# ---- PHASE 2: pressure regimes (experiments/PHASE2.md) ----------------------
+# Regimes that SHOULD force the hybrid to externalize state. Same recipe as
+# the phase-1 A ablations (2500 steps, d=128, N=12, depth<=4, p_trivial 0).
+# NOTE: override flags stay AFTER "${REC[@]}" (argparse: last one wins).
+
+# H1 — lossy channel: sigma 0.3 / 0.5 (phase-1 was 0.1), with
+#      regime-matched re-trained baselines so c4 stays apples-to-apples.
+run A_s03        --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --sigma 0.3
+run A_s03_emit   --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force emit "${REC[@]}" --sigma 0.3
+run A_s03_latent --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force latent "${REC[@]}" --sigma 0.3
+run A_s05        --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --sigma 0.5
+run A_s05_emit   --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force emit "${REC[@]}" --sigma 0.5
+run A_s05_latent --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force latent "${REC[@]}" --sigma 0.5
+
+# H2 — information over time: input arrives chunk-by-chunk (gradual reader);
+#      no stage ever sees the full input.
+run A_bneck        --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --reader-mode gradual
+run A_bneck_emit   --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force emit "${REC[@]}" --reader-mode gradual
+run A_bneck_latent --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 --force latent "${REC[@]}" --reader-mode gradual
+
+# H3 — learned controller vs fixed emission schedules (gate bypassed,
+#      mode head not trained): 3 emits ~= hybrid's ~2, and 6 emits.
+run A_sched4 --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --force schedule --schedule-every 4
+run A_sched2 --task arithmetic --arch mlp --d 128 --n 12 --depth-max 4 --p-trivial 0.0 --steps 2500 "${REC[@]}" --force schedule --schedule-every 2
+
 echo "MATRIX COMPLETE"

@@ -159,12 +159,27 @@ class InterleavedProcessor(nn.Module):
                  sigma: float = 0.0, reader_layers: int = 1,
                  q_conf: float = 0.35, t_conf: float = 0.1,
                  content: str = "argmax", mode_bottleneck: int = 0,
-                 gate_ema: float = 0.0):
+                 gate_ema: float = 0.0, reader_mode: str = "full",
+                 schedule_every: int | None = None):
         super().__init__()
         assert arch in STAGES, arch
         self.d, self.n_stages, self.vocab, self.arch, self.sigma = d, n_stages, vocab, arch, sigma
         self.mechanism = mechanism
         self.reader_layers = reader_layers
+        # reader_mode (PHASE 2, H2): "full" = the original reader sees the
+        # whole input before stage 0; "gradual" = the input is split into
+        # n_stages+1 chunks -- chunk 0 initializes h_0 and chunk l+1 is
+        # injected into the state AFTER stage l through a per-stage
+        # zero-initialized projection, so no stage ever sees the full input.
+        assert reader_mode in ("full", "gradual")
+        self.reader_mode = reader_mode
+        # schedule_every (PHASE 2, H3): with force="schedule" the model emits
+        # unconditionally at every k-th stage ((l+1) % k == 0) and NEVER
+        # consults the confidence gate -- a fixed-position baseline for the
+        # learned controller. None = not a schedule run.
+        if schedule_every is not None:
+            assert schedule_every >= 1
+        self.schedule_every = schedule_every
         # Content gate: emit only when the readout is confident (maxp >= q_conf).
         # Soft: g = sigmoid((maxp - q_conf)/t_conf); hard: maxp >= q_conf.
         # q_conf <= 0 disables the gate (backward-compatible with early runs).
@@ -184,12 +199,25 @@ class InterleavedProcessor(nn.Module):
         assert content in ("argmax", "expectation")
         self.content = content
         self.embed = nn.Embedding(vocab, d)
-        if reader_layers == 1:
-            self.reader = nn.GRUCell(d, d)
+        if reader_mode == "gradual":
+            # Bottleneck reader (H2): replaces the GRU reader entirely.
+            # Task interface (group `base`), exactly like the reader it
+            # replaces; zero-init => at step 0 the model behaves like a
+            # full-reader model that receives no input after h_0.
+            self.reader = None
             self.reader_proj = None
-        else:  # 2-layer reader (task interface only, not a stage)
-            self.reader = nn.GRU(d, d * 2, num_layers=2)
-            self.reader_proj = nn.Linear(d * 2, d)
+            self.chunk_proj = nn.ModuleList(
+                [nn.Linear(d, d, bias=False) for _ in range(n_stages + 1)])
+            for cp in self.chunk_proj:
+                nn.init.zeros_(cp.weight)
+        else:
+            self.chunk_proj = None
+            if reader_layers == 1:
+                self.reader = nn.GRUCell(d, d)
+                self.reader_proj = None
+            else:  # 2-layer reader (task interface only, not a stage)
+                self.reader = nn.GRU(d, d * 2, num_layers=2)
+                self.reader_proj = nn.Linear(d * 2, d)
         self.stages = nn.ModuleList([STAGES[arch](d) for _ in range(n_stages)])
         self.mode_norm = nn.LayerNorm(d) if mechanism else nn.Identity()
         # mode_bottleneck > 0: mode decision reads a low-dim projection of the
@@ -212,19 +240,55 @@ class InterleavedProcessor(nn.Module):
     # -- parameter accounting ------------------------------------------------
     def param_groups(self):
         def n(m):
+            if m is None:
+                return 0
             return sum(p.numel() for p in m.parameters())
         stages = n(self.stages)
         mechanism = 0
         if self.mechanism:
             mechanism = n(self.mode_norm) + n(self.mode_head)
-        base = n(self.embed) + n(self.reader) + n(self.readout)
+        # The gradual chunk projections (PHASE 2) are task interface, not
+        # mechanism: they replace the input reader, which every baseline
+        # needs too, so they live in `base` (mechanism overhead is measured
+        # against stages and must not grow with the reader variant).
+        base = n(self.embed) + n(self.reader) + n(self.readout) + n(self.chunk_proj)
         total = stages + mechanism + base
         return {"stages": stages, "mechanism": mechanism, "base": base,
                 "total": total, "overhead_pct": 100.0 * mechanism / stages}
 
     # -- input encoding --------------------------------------------------------
+    def _chunk_embeds(self, x: torch.Tensor) -> torch.Tensor:
+        """(B, n_stages+1, d): mean embedding of each input chunk.
+
+        The sequence of length L is split into K = n_stages+1 contiguous
+        chunks with boundaries `torch.linspace(0, L, K+1).round().long()`;
+        chunk k covers tokens [b_k, b_{k+1}). Within a chunk the embedding
+        is the mean over non-<pad> positions (<pad> = token id 0); a chunk
+        with no real tokens (empty span or all pads) is the zero vector.
+        """
+        B, L = x.shape
+        K = self.n_stages + 1
+        e = self.embed(x)                                    # (B, L, d)
+        pad = x == 0                                         # (B, L)
+        bounds = torch.linspace(0, L, K + 1).round().long()  # (K+1,)
+        chunks = []
+        for k in range(K):
+            a, b = int(bounds[k]), int(bounds[k + 1])
+            if b <= a:                                       # empty span
+                chunks.append(e.new_zeros(B, self.d))
+                continue
+            seg = e[:, a:b]                                  # (B, w, d)
+            keep = (~pad[:, a:b]).to(e.dtype).unsqueeze(-1)  # (B, w, 1)
+            denom = keep.sum(dim=1).clamp(min=1.0)           # (B, 1)
+            chunks.append((seg * keep).sum(dim=1) / denom)   # (B, d)
+        return torch.stack(chunks, dim=1)                    # (B, K, d)
+
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """h_0 from the input token sequence (depth-as-time GRU read)."""
+        """h_0 from the input token sequence."""
+        if self.reader_mode == "gradual":
+            # only chunk 0 is available at stage 0; the rest arrives after
+            # the corresponding stage (see forward)
+            return self.chunk_proj[0](self._chunk_embeds(x)[:, 0])
         if self.reader_layers == 1:
             h = self.embed(x[:, 0])
             for t in range(1, x.size(1)):
@@ -239,13 +303,24 @@ class InterleavedProcessor(nn.Module):
                 semantics="additive", noise_gen=None):
         """
         mode:    'soft' (training) | 'hard' (inference)
-        force:   None | 'emit' | 'latent'  (baselines / forced-mode evaluation)
+        force:   None | 'emit' | 'latent' | 'schedule'
+                 (baselines / forced-mode evaluation; 'schedule' emits
+                 unconditionally every schedule_every-th stage, gate bypassed)
         semantics: 'additive' (spec) | 'reset' (reference-sketch blend)
         noise_gen: torch.Generator for channel noise (eval determinism)
         returns: (h_final, P (B,N), trace (B, L, 2): [stage, token])
         """
-        h = self.encode(x)
+        if self.reader_mode == "gradual":
+            chunk_e = self._chunk_embeds(x)                    # (B, N+1, d)
+            h = self.chunk_proj[0](chunk_e[:, 0])
+        else:
+            chunk_e = None
+            h = self.encode(x)
         B = h.size(0)
+        # PHASE 2 (H3): the forced schedule bypasses the confidence gate
+        # entirely -- the point is to isolate "learned WHEN" from the gate
+        # mechanism, so scheduled emissions are unconditional.
+        gated = self.q_conf > 0 and force != "schedule"
         P = []
         G = []
         # per-sample trace: token per stage, -1 = not emitted yet
@@ -269,6 +344,13 @@ class InterleavedProcessor(nn.Module):
                 p = h.new_ones(B)
             elif force == "latent":
                 p = h.new_zeros(B)
+            elif force == "schedule":
+                # fixed-position baseline: emit every k-th stage, no choice
+                assert self.schedule_every, "force='schedule' needs schedule_every"
+                if (l + 1) % self.schedule_every == 0:
+                    p = h.new_ones(B)
+                else:
+                    p = h.new_zeros(B)
             else:
                 z = self.mode_head(self.mode_norm(h))
                 p = torch.sigmoid(z[:, 1] - z[:, 0])          # (B,)
@@ -289,7 +371,7 @@ class InterleavedProcessor(nn.Module):
                 e = self.embed(t_star)                        # hard-mode content
 
             if mode == "soft":
-                if self.q_conf > 0:
+                if gated:
                     g = torch.sigmoid((mp_g - self.q_conf) / self.t_conf)
                 else:
                     g = torch.ones_like(maxp)
@@ -300,7 +382,7 @@ class InterleavedProcessor(nn.Module):
                     h = (1.0 - (p * g).unsqueeze(-1)) * h + (p * g).unsqueeze(-1) * e
             else:
                 m = p >= tau
-                if self.q_conf > 0:
+                if gated:
                     m = m & (mp_g >= self.q_conf)
                 G.append(m.to(h.dtype))
                 if m.any():
@@ -311,6 +393,11 @@ class InterleavedProcessor(nn.Module):
                     else:
                         h = torch.where(m.unsqueeze(-1), te, h)
                     trace_tokens[m, l] = t[m]
+
+            if chunk_e is not None:
+                # gradual reader (H2): chunk l+1 joins the state only AFTER
+                # stage l has run -- no stage ever sees the full input.
+                h = h + self.chunk_proj[l + 1](chunk_e[:, l + 1])
 
             if self.sigma > 0:
                 if noise_gen is not None:
