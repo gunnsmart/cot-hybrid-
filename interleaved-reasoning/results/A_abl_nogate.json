@@ -1,5 +1,5 @@
 {
- "best_step": null,
+ "best_step": 250,
  "config": {
   "arch": "mlp",
   "batch": 96,
@@ -36,11 +36,21 @@
  },
  "created": "2026-09-30T06:24:17+00:00",
  "curves": {
-  "dev_acc": [],
-  "dev_ce": [],
-  "mean_p": [],
-  "step": [],
-  "train_loss": []
+  "dev_acc": [
+   0.21094
+  ],
+  "dev_ce": [
+   3.21864
+  ],
+  "mean_p": [
+   0.17462
+  ],
+  "step": [
+   250
+  ],
+  "train_loss": [
+   2.11606
+  ]
  },
  "negative_result": null,
  "params": {
